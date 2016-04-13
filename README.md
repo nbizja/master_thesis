@@ -8,9 +8,9 @@ Mentor: doc. dr. Veljko Pejović
 
 
 ### Working with: 
-..* Mininet-wifi  (https://github.com/intrig-unicamp/mininet-wifi)
-..* Ryu SDN Controller (https://github.com/osrg/ryu/)
-..* Opencache - Experimental caching platform (https://github.com/broadbent/opencache)
+* Mininet-wifi  (https://github.com/intrig-unicamp/mininet-wifi)
+* Ryu SDN Controller (https://github.com/osrg/ryu/)
+* Opencache - Experimental caching platform (https://github.com/broadbent/opencache)
 
 
 ### Running on: http://sdnhub.org/tutorials/sdn-tutorial-vm/
