@@ -41,5 +41,13 @@ Hello world example:
 mininet-wifi> h1 wget 10.0.0.17:8080/helloworld
 ```
 
+To run simulation (work in progress):
+```
+mininet-wifi> py execfile("simulation.py")
+```
+
+
+
+
 
 

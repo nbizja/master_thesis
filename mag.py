@@ -23,9 +23,9 @@ def createNetwork(depth, fanout):
 
 
     addGatewayHost(net, pow(fanout, depth))
-    print '* Testing network'
+    #print '* Testing network'
     #net.pingAll()
-
+    simulation(net)
     CLI( net )
     net.stop()
 
@@ -43,6 +43,11 @@ def addGatewayHost( net, numberOFHosts ):
 def createServer( host ):
     host.cmd('python simple_server.py &')
 
+def simulation( net ):
+    print '* h1 requesting video1'
+    net.get('h1').cmd('wget 10.0.0.17:8080/video1.mp4')
+    print '* success'
+
 if __name__ == '__main__':
     setLogLevel( 'info' )
-    createNetwork(4,2)
+    createNetwork(4,2) #2^4 hosts
