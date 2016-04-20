@@ -1,8 +1,12 @@
 #!/usr/bin/python
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from os import curdir, sep
+import logging
+
 
 PORT_NUMBER = 8080
+logging.basicConfig(filename='simple_server.log',level=logging.INFO)
+
 
 #This class will handles any incoming request from
 #the browser 
@@ -10,6 +14,7 @@ class myHandler(BaseHTTPRequestHandler):
     
     #Handler for the GET requests
     def do_GET(self):
+        logging.info(self.path)
         if self.path == "/helloworld":
             self.send_response(200)
             self.send_header('Content-type', 'text/html')

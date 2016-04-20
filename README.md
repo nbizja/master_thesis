@@ -46,6 +46,12 @@ To run simulation (work in progress):
 mininet-wifi> py execfile("simulation.py")
 ```
 
+Statistics overview can be obtained on http://0.0.0.0:8080/web/stats.html 
+
+
+Data in json from can be obtained for all switches: http://0.0.0.0:8080/stats/flow/{id_of_switch}
+
+Most important fields used for our metric are **packet_count and **byte_count .
 
 
 
