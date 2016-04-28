@@ -1,0 +1,2 @@
+[2016-04-28 00:31:43,518][INFO][api] JSON-RPC API starting at 127.0.0.1:49001
+[2016-04-28 00:50:43,653][INFO][controller] Caught exit signal: exiting OpenCache controller
