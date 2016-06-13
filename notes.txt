@@ -1,0 +1,8 @@
+In order to successfully redirect the packet we need to
+push 4 rules to the edge switch (switch, that is receiving initial request):
+
+- Outgoing ARP and IP: 
+replace target ip with ip of cache
+- Incoming ARP and IP: replace source ip (cache is responding) with target ip.
+
+On switch before cache server we change destination port to 3128

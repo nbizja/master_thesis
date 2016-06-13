@@ -6,3 +6,5 @@ squid3 -N -d 6 -f /home/ubuntu/mag/squid/squid.conf
 
 
 
+
+
