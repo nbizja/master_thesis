@@ -6,3 +6,25 @@ replace target ip with ip of cache
 - Incoming ARP and IP: replace source ip (cache is responding) with target ip.
 
 On switch before cache server we change destination port to 3128
+
+
+        {
+            "type": "SET_FIELD",
+            "field": "tcp_dst",
+            "value": 3128,
+            "eth_type": 2048,
+            "ip_proto": 6
+        },
+
+
+wget with proxy:
+h1 wget --proxy 10.0.0.17:3128 http://10.0.0.2:8080/helloworld
+h1 wget -e use_proxy=yes -e http_proxy=10.0.0.17:3128 http://10.0.0.2:8080/helloworld
+
+
+
+We MUST set appropriate http headers:
+self.send_header('Cache-Control', 'public, max-age=31536000')
+self.send_header('ETag', '686897696a7c876b7e')
+self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
+self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')

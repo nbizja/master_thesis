@@ -2,9 +2,10 @@
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from os import curdir, sep
 import logging
+import time
 
 
-PORT_NUMBER = 8080
+PORT_NUMBER = 80
 logging.basicConfig(filename='simple_server.log',level=logging.INFO)
 
 
@@ -15,11 +16,25 @@ class myHandler(BaseHTTPRequestHandler):
     #Handler for the GET requests
     def do_GET(self):
         logging.info(self.path)
+        self.send_header('Cache-Control', 'public, max-age=31536000')
+        self.send_header('ETag', '686897696a7c876b7e')
+        self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
+        self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
+        
         if self.path == "/helloworld":
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
             self.wfile.write("Hello World")
+            return
+        if self.path == "/ryu":
+            #Open the static file requested and send it
+            f = open(curdir + sep + 'ryu.png') 
+            self.send_response(200)
+            self.send_header('Content-type','image/png')
+            self.end_headers()
+            self.wfile.write(f.read())
+            f.close()
             return
 
         try:
