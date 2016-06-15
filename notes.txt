@@ -21,6 +21,8 @@ wget with proxy:
 h1 wget --proxy 10.0.0.17:3128 http://10.0.0.2:8080/helloworld
 h1 wget -e use_proxy=yes -e http_proxy=10.0.0.17:3128 http://10.0.0.2:8080/helloworld
 
+The problem is:
+ryu HTTP/1.1 this relative url should be http://10.0.0.2/ryu HTTP/1.1 
 
 
 We MUST set appropriate http headers:

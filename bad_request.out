@@ -1,0 +1,42 @@
+No.     Time           Source                Destination           Protocol Length Info
+     17 23.604936000   10.0.0.1              10.0.0.17             HTTP     175    GET /ryu HTTP/1.1 
+
+Frame 17: 175 bytes on wire (1400 bits), 175 bytes captured (1400 bits) on interface 0
+Ethernet II, Src: 8a:ff:a4:ee:3b:dc (8a:ff:a4:ee:3b:dc), Dst: d6:b8:2a:5d:a7:97 (d6:b8:2a:5d:a7:97)
+Internet Protocol Version 4, Src: 10.0.0.1 (10.0.0.1), Dst: 10.0.0.17 (10.0.0.17)
+Transmission Control Protocol, Src Port: 43799 (43799), Dst Port: 80 (80), Seq: 1, Ack: 1, Len: 109
+    Source Port: 43799 (43799)
+    Destination Port: 80 (80)
+    [Stream index: 0]
+    [TCP Segment Len: 109]
+    Sequence number: 1    (relative sequence number)
+    [Next sequence number: 110    (relative sequence number)]
+    Acknowledgment number: 1    (relative ack number)
+    Header Length: 32 bytes
+    .... 0000 0001 1000 = Flags: 0x018 (PSH, ACK)
+    Window size value: 58
+    [Calculated window size: 29696]
+    [Window size scaling factor: 512]
+    Checksum: 0x26a8 [validation disabled]
+    Urgent pointer: 0
+    Options: (12 bytes), No-Operation (NOP), No-Operation (NOP), Timestamps
+    [SEQ/ACK analysis]
+        [iRTT: 0.000314000 seconds]
+        [Bytes in flight: 109]
+Hypertext Transfer Protocol
+    GET /ryu HTTP/1.1\r\n
+        [Expert Info (Chat/Sequence): GET /ryu HTTP/1.1\r\n]
+            [GET /ryu HTTP/1.1\r\n]
+            [Severity level: Chat]
+            [Group: Sequence]
+        Request Method: GET
+        Request URI: /ryu
+        Request Version: HTTP/1.1
+    User-Agent: Wget/1.15 (linux-gnu)\r\n
+    Accept: */*\r\n
+    Host: 10.0.0.2\r\n
+    Connection: Keep-Alive\r\n
+    \r\n
+    [Full request URI: http://10.0.0.2/ryu]
+    [HTTP request 1/1]
+    [Response in frame: 20]

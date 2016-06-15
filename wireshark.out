@@ -1,0 +1,24 @@
+No.     Time           Source                Destination           Protocol Length Info
+      8 8.430707000    10.0.0.1              10.0.0.17             HTTP     215    GET http://10.0.0.2/ryu HTTP/1.1 
+
+Frame 8: 215 bytes on wire (1720 bits), 215 bytes captured (1720 bits) on interface 0
+Ethernet II, Src: 82:c2:42:83:77:46 (82:c2:42:83:77:46), Dst: a6:2c:df:52:c4:ed (a6:2c:df:52:c4:ed)
+Internet Protocol Version 4, Src: 10.0.0.1 (10.0.0.1), Dst: 10.0.0.17 (10.0.0.17)
+Transmission Control Protocol, Src Port: 55334 (55334), Dst Port: 3128 (3128), Seq: 1, Ack: 1, Len: 149
+    Source Port: 55334 (55334)
+    Destination Port: 3128 (3128)
+    [Stream index: 0]
+    [TCP Segment Len: 149]
+    Sequence number: 1    (relative sequence number)
+    [Next sequence number: 150    (relative sequence number)]
+    Acknowledgment number: 1    (relative ack number)
+    Header Length: 32 bytes
+    .... 0000 0001 1000 = Flags: 0x018 (PSH, ACK)
+    Window size value: 58
+    [Calculated window size: 29696]
+    [Window size scaling factor: 512]
+    Checksum: 0x14cd [validation disabled]
+    Urgent pointer: 0
+    Options: (12 bytes), No-Operation (NOP), No-Operation (NOP), Timestamps
+    [SEQ/ACK analysis]
+Hypertext Transfer Protocol
