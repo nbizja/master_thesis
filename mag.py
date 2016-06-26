@@ -38,7 +38,7 @@ def addGatewayHost( net, numberOFHosts ):
 	net.get(hostname).setIP('10.' + host)
 	print '* Gateway host ' + hostname + ' with ip ' + '10.' + host
 	print '* Creating server on a gateway host...'
-	createServer(net.get('h2'))
+	createServer(net.get('h16'))
 
 def createServer( host ):
 	host.cmd('python simple_server.py &')

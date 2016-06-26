@@ -11,7 +11,7 @@ On switch before cache server we change destination port to 3128
         {
             "type": "SET_FIELD",
             "field": "tcp_dst",
-            "value": 3128,
+            "value": 3218,
             "eth_type": 2048,
             "ip_proto": 6
         },
@@ -24,9 +24,25 @@ h1 wget -e use_proxy=yes -e http_proxy=10.0.0.17:3128 http://10.0.0.2:8080/hello
 The problem is:
 ryu HTTP/1.1 this relative url should be http://10.0.0.2/ryu HTTP/1.1 
 
+Standard demands abolute path for target (https://tools.ietf.org/html/rfc7230#section-5.3.1).
+
 
 We MUST set appropriate http headers:
 self.send_header('Cache-Control', 'public, max-age=31536000')
 self.send_header('ETag', '686897696a7c876b7e')
 self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
 self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
+
+
+#################################
+		IPTABLES (h17)
+#################################
+iptables -t nat -A OUTPUT --match owner --uid-owner proxy -p tcp --dport 80 -j ACCEPT
+iptables -t nat -A OUTPUT -p tcp --dport 80 -j DNAT --to-destination SQUIDIP:3129
+
+
+iptables -t nat -A OUTPUT --match owner --uid-owner proxy -p tcp --dport 80 --dst 10.0.0.17 -j ACCEPT
+iptables -t nat -A OUTPUT -p tcp --dport 80 -j DNAT --to-destination 10.0.0.17:3219
+
+
+Intercepting proxy == inline cache
