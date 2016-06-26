@@ -16,10 +16,6 @@ class myHandler(BaseHTTPRequestHandler):
     #Handler for the GET requests
     def do_GET(self):
         logging.info(self.path)
-        self.send_header('Cache-Control', 'public, max-age=31536000')
-        self.send_header('ETag', '686897696a7c876b7e')
-        self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
-        self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
         
         if self.path == "/helloworld":
             self.send_response(200)
@@ -31,6 +27,10 @@ class myHandler(BaseHTTPRequestHandler):
             #Open the static file requested and send it
             f = open(curdir + sep + 'ryu.png') 
             self.send_response(200)
+            self.send_header('Cache-Control', 'public, max-age=31536000')
+            self.send_header('ETag', '696897696a7c876b7e')
+            self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
+            self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
             self.send_header('Content-type','image/png')
             self.end_headers()
             self.wfile.write(f.read())

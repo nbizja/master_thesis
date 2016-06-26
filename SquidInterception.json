@@ -1,0 +1,51 @@
+{
+	"variables": [],
+	"info": {
+		"name": "Interception",
+		"_postman_id": "5ff5f6a6-c189-3b7a-df15-8da5a74acac6",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "arp-13-returning",
+			"request": {
+				"url": "localhost:8080/stats/flowentry/add",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"dpid\": 1,\n    \"idle_timeout\": 30,\n    \"hard_timeout\": 30,\n    \"priority\": 44444,\n    \"match\":{\n        \"arp_spa\": \"10.0.0.17\",\n        \"arp_tpa\": \"10.0.0.1\",\n        \"eth_type\": 2054\n    },\n    \"actions\":[\n        {\n            \"type\": \"SET_FIELD\",\n            \"field\": \"arp_spa\",\n            \"value\": \"10.0.0.16\",\n            \"eth_type\": 2054\n        },\n        {\n            \"type\":\"OUTPUT\",\n            \"port\": 1\n        }\n    ]\n }"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "arp-13-outgoing",
+			"request": {
+				"url": "localhost:8080/stats/flowentry/add",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"dpid\": 1,\n    \"idle_timeout\": 30,\n    \"hard_timeout\": 30,\n    \"priority\": 44444,\n    \"match\":{\n        \"arp_spa\": \"10.0.0.1\",\n        \"arp_tpa\": \"10.0.0.16\",\n        \"eth_type\": 2054\n    },\n    \"actions\":[\n        {\n            \"type\": \"SET_FIELD\",\n            \"field\": \"arp_tpa\",\n            \"value\": \"10.0.0.17\",\n            \"eth_type\": 2054\n        },\n        {\n            \"type\":\"OUTPUT\",\n            \"port\": 3\n        }\n    ]\n }"
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}
