@@ -79,6 +79,18 @@ Statistics overview can be obtained on http://0.0.0.0:8080/web/stats.html
 Data in json from can be obtained for all switches: http://0.0.0.0:8080/stats/flow/{id_of_switch}
 Most important fields used for our metric are **packet_count and **byte_count .
 
+Improved monitoring and statistics can be obtained with open source tool Bandwidth Monitor NG
+
+```
+sudo apt-get install bwm-ng
+
+bwm-ng
+```
+To store the results:
+
+```
+bwm-ng -o html -u bytes -T sum -F /home/ubuntu/mag/network_stats.html -I %lo,eth0,docker0,ovs-system,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15 -S 0 -D 1
+```
 
 
 
