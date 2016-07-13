@@ -30,17 +30,17 @@ class MobilitySwitch( OVSSwitch ):
     def attach( self, intf, isNew=False ):
         "Attach an interface and set its port"
         if isNew:
-        	super(MobilitySwitch, self).attach(intf)
+            super(MobilitySwitch, self).attach(intf)
         else:
-	        port = self.ports[ intf ]
-	        if port:
-	            if self.isOldOVS():
-	                self.cmd( 'ovs-vsctl add-port', self, intf )
-	            else:
-	                self.cmd( 'ovs-vsctl add-port', self, intf,
-	                          '-- set Interface', intf,
-	                          'ofport_request=%s' % port )
-	            self.validatePort( intf )
+            port = self.ports[ intf ]
+            if port:
+                if self.isOldOVS():
+                    self.cmd( 'ovs-vsctl add-port', self, intf )
+                else:
+                    self.cmd( 'ovs-vsctl add-port', self, intf,
+                              '-- set Interface', intf,
+                              'ofport_request=%s' % port )
+                self.validatePort( intf )
 
     def validatePort( self, intf ):
         "Validate intf's OF port number"
@@ -89,54 +89,69 @@ def moveHost( host, oldSwitch, newSwitch, newPort=None ):
     return hintf, sintf
     
 def createNetwork(depth, fanout):
-	"A simple test of mobility"
-	print '* Simple mobility test'
-	net = TreeNet( depth=depth, fanout=fanout, switch=MobilitySwitch, controller=None)
-	print '* Starting network:'
+    "A simple test of mobility"
+    print '* Simple mobility test'
+    net = TreeNet( depth=depth, fanout=fanout, switch=MobilitySwitch, controller=None)
+    print '* Starting network:'
 
-	ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
-	#Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
-	
-	net.start()
+    ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
+    #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
+    
+    net.start()
 
 
-	addGatewayHost(net, pow(fanout, depth))
-	#print '* Testing network'
-	#net.pingAll()
-	simulation(net)
-	CLI( net )
-	net.stop()
+    addGatewayHost(net, pow(fanout, depth))
+    #print '* Testing network'
+    #net.pingAll()
+    simulation(net)
+    CLI( net )
+    net.stop()
 
 def addGatewayHost( net, numberOFHosts ):
-	host = str((numberOFHosts + 1))
-	hostname = 'h' + host
-	net.addHost(hostname)
-	net.addLink(net.get('s1'), net.get(hostname))
-	net.get('s1').attach('s1-eth3', True)
-	net.get(hostname).setIP('10.' + host)
-	print '* Gateway host ' + hostname + ' with ip ' + '10.' + host
-	print '* Creating server on a gateway host...'
-	createServer(net.get('h16'))
+    "Adding host at the root which simulates the internet."
+    host = str((numberOFHosts + 1))
+    hostname = 'h' + host
+    net.addHost(hostname)
+    # 15 Mbps bandwidth and 10 ms delay on link to internet
+    net.addLink(net.get('s1'), net.get(hostname))
+    net.get('s1').attach('s1-eth3', True)
+    net.get(hostname).setIP('10.' + host)
+    print '* Gateway host ' + hostname + ' with ip ' + '10.' + host
+    print '* Creating server on a gateway host...'
+    createServer(net.get('h16'))
+
+def addCacheHosts( net, numberOfSwitches, placement, offset ):
+    "Adding caches in the network"
+    
+    if placement == 'All':
+        for i in range(1, numberOfSwitches):
+            host = offset + i
+            hostname = 'h' + host
+            h = net.addHost(hostname)
+            net.addLink(net.get('s' + i), net.get(hostname))
+            net.get('s' + i).attach('s' + i + '-eth5', True)
+            net.get(hostname).setIP('10.' + host)
+
 
 def createServer( host ):
-	host.cmd('python simple_server.py &')
+    host.cmd('python simple_server.py &')
 
 def simulation( net ):
-	print '* h1 requesting video1'
-	#net.get('h1').cmd('wget 10.0.0.17:8080/video1.mp4')
-	#print '* success'
-	net.get('s5').attach('s5-eth4', True)
-	h1, old = net.get( 'h1', 's4' )
-	new = net[ 's5' ]
-	port = 15
-	print '* Moving', h1, 'from', old, 'to', new, 'port', port
-	hintf, sintf = moveHost( h1, old, new, newPort=port )
-	print '*', hintf, 'is now connected to', sintf
-	print '* New network:'
-	printConnections( net.switches )
-	print '* Testing connectivity:'
-	old = new
+    print '* h1 requesting video1'
+    #net.get('h1').cmd('wget 10.0.0.17:8080/video1.mp4')
+    #print '* success'
+    net.get('s5').attach('s5-eth4', True)
+    h1, old = net.get( 'h1', 's4' )
+    new = net[ 's5' ]
+    port = 15
+    print '* Moving', h1, 'from', old, 'to', new, 'port', port
+    hintf, sintf = moveHost( h1, old, new, newPort=port )
+    print '*', hintf, 'is now connected to', sintf
+    print '* New network:'
+    printConnections( net.switches )
+    print '* Testing connectivity:'
+    old = new
 
 if __name__ == '__main__':
-	setLogLevel( 'info' )
-	createNetwork(4,2) #2^4 hosts
+    setLogLevel( 'info' )
+    createNetwork(4,2) #2^4 hosts
