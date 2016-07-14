@@ -101,9 +101,10 @@ def createNetwork(depth, fanout):
 
 
     addGatewayHost(net, pow(fanout, depth))
+    addCacheHosts(net, 15, 'All')
     #print '* Testing network'
     #net.pingAll()
-    simulation(net)
+    #simulation(net)
     CLI( net )
     net.stop()
 
@@ -120,16 +121,26 @@ def addGatewayHost( net, numberOFHosts ):
     print '* Creating server on a gateway host...'
     createServer(net.get('h16'))
 
-def addCacheHosts( net, numberOfSwitches, placement, offset ):
+def addCacheHosts( net, numberOfSwitches, placement ):
     "Adding caches in the network"
     
+    print '* Creating cache hosts...'
     if placement == 'All':
         for i in range(1, numberOfSwitches):
-            host = offset + i
+            host = str(i + 17)
+            switch = str(i)
             hostname = 'h' + host
             h = net.addHost(hostname)
-            net.addLink(net.get('s' + i), net.get(hostname))
-            net.get('s' + i).attach('s' + i + '-eth5', True)
+            h.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
+            h.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
+            h.cmd('./home/ubuntu/mag/squid/run-squid.sh')
+            net.addLink(net.get('s' + switch), net.get(hostname))
+            eth = 'eth4'
+            #Root switch already has 4 ports
+            if i == 1:
+                eth = 'eth5'
+
+            net.get('s' + switch).attach('s' + switch + '-' + eth, True)
             net.get(hostname).setIP('10.' + host)
 
 

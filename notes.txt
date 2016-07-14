@@ -126,3 +126,10 @@ https://github.com/vgropp/bwm-ng
 Our settings:
 bwm-ng --output html --unit bytes -T sum --outfile /home/ubuntu/mag/netrk_stats.html --interfaces %lo,eth0,docker0,ovs-system,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15 --sumhidden 0 --daemon 1
 
+
+
+Mobillity models:
+
+Random wazpoint
+Hierarchical clustering
+
