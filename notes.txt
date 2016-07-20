@@ -130,6 +130,12 @@ bwm-ng --output html --unit bytes -T sum --outfile /home/ubuntu/mag/netrk_stats.
 
 Mobillity models:
 
-Random wazpoint
+Random waypoint
 Hierarchical clustering
 
+
+
+Wifi traces:
+http://crawdad.org/dartmouth/campus/20090909/
+
+We use APlocations.csv to realisticly replicate network topology. We use hierachical clustering to connect access points in a tree topology. Some of the APs do not have coordinates so we extrapolate from near APs.
