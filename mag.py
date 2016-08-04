@@ -9,6 +9,7 @@ from mininet.net import Mininet
 from mininet.log import output, warn
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from os import curdir, sep
+from TopologyGenerator import TopologyGenerator
 
 class MobilitySwitch( OVSSwitch ):
     "Switch that can reattach and rename interfaces"
@@ -163,6 +164,74 @@ def simulation( net ):
     print '* Testing connectivity:'
     old = new
 
+def networkFromCLusters( clusters, linkage, size ):
+    net = Mininet( controller=None )
+    ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
+    #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
+    
+    si = 2
+    net.addSwitch('s1')
+
+    links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
+    while(len(links) != 0):
+        lnks = []
+        for li in links:
+            li = li - size
+            parentSwitch = net.get('s' + str(si - 1))
+            tempSwitch1 = linkage[li, 0] - size
+            tempSwitch2 = linkage[li, 1] - size
+            print tempSwitch1
+            print tempSwitch2
+
+            if (tempSwitch1 >= 0):
+                if (linkage[tempSwitch1, 0] >= size):
+                    lnks.append(linkage[tempSwitch1, 0])
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+
+                if (linkage[tempSwitch1, 1] >= size):
+                    lnks.append(linkage[tempSwitch1, 1])
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+            else:
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+
+            if (tempSwitch2 >= 0):
+                if (linkage[tempSwitch2, 0] >= size):
+                    lnks.append(linkage[tempSwitch2, 0])
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+
+                if (linkage[tempSwitch2, 1] >= size):
+                    lnks.append(linkage[tempSwitch2, 1])
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+            else:
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
+
+        links = lnks
+
+    print '*** Starting network\n'
+    net.start()
+    CLI( net )
+    net.stop()
+
 if __name__ == '__main__':
     setLogLevel( 'info' )
-    createNetwork(4,2) #2^4 hosts
+    tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
+    buildings = tp.computeBuildingAverages()
+    linkage = tp.computeLinkage(printDendogram = False)
+    clusters = tp.computeClusters()
+    networkFromCLusters(clusters, linkage, len(buildings))
+    #print clusters
+
+    #createNetwork(4,2) #2^4 hosts
+
