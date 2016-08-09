@@ -164,14 +164,26 @@ def simulation( net ):
     print '* Testing connectivity:'
     old = new
 
-def networkFromCLusters( clusters, linkage, size ):
+def addHostsToSwitch( net, switch, buildingIndex, nextHostIndex, apsByBuildings, buildingNames ):
+    buildingName = buildingNames[buildingIndex]
+    nhi = nextHostIndex
+    for ap in apsByBuildings[buildingName]:
+        h = net.addHost('h' + str(nhi))
+        net.addLink( h , switch)
+        nhi = nhi + 1
+
+    return nhi
+
+
+def networkFromCLusters( clusters, linkage, size, apsByBuildings, buildingNames ):
     net = Mininet( controller=None )
     ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
     #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
     
     si = 2
     net.addSwitch('s1')
-
+    nextHostIndex = 1
+    buildingIndex = 0
     links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
     while(len(links) != 0):
         lnks = []
@@ -180,42 +192,59 @@ def networkFromCLusters( clusters, linkage, size ):
             parentSwitch = net.get('s' + str(si - 1))
             tempSwitch1 = linkage[li, 0] - size
             tempSwitch2 = linkage[li, 1] - size
-            print tempSwitch1
-            print tempSwitch2
+            #print tempSwitch1
+            #print tempSwitch2
 
             if (tempSwitch1 >= 0):
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
                 if (linkage[tempSwitch1, 0] >= size):
                     lnks.append(linkage[tempSwitch1, 0])
+                else:
+                    nextHostIndex = addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                    buildingIndex = buildingIndex + 1
+
+
                 s = net.addSwitch('s' + str(si))
                 si = si + 1
                 net.addLink( s, parentSwitch )
-
                 if (linkage[tempSwitch1, 1] >= size):
                     lnks.append(linkage[tempSwitch1, 1])
-                s = net.addSwitch('s' + str(si))
-                si = si + 1
-                net.addLink( s, parentSwitch )
+                else:
+                    nextHostIndex = addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                    buildingIndex = buildingIndex + 1                
+
             else:
                 s = net.addSwitch('s' + str(si))
                 si = si + 1
                 net.addLink( s, parentSwitch )
 
             if (tempSwitch2 >= 0):
+                s = net.addSwitch('s' + str(si))
+                si = si + 1
+                net.addLink( s, parentSwitch )
                 if (linkage[tempSwitch2, 0] >= size):
                     lnks.append(linkage[tempSwitch2, 0])
+                else:
+                    nextHostIndex = addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                    buildingIndex = buildingIndex + 1 
+
                 s = net.addSwitch('s' + str(si))
                 si = si + 1
                 net.addLink( s, parentSwitch )
-
                 if (linkage[tempSwitch2, 1] >= size):
                     lnks.append(linkage[tempSwitch2, 1])
-                s = net.addSwitch('s' + str(si))
-                si = si + 1
-                net.addLink( s, parentSwitch )
+                else:
+                    nextHostIndex = addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                    buildingIndex = buildingIndex + 1 
+
             else:
                 s = net.addSwitch('s' + str(si))
                 si = si + 1
                 net.addLink( s, parentSwitch )
+                nextHostIndex = addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                buildingIndex = buildingIndex + 1 
 
         links = lnks
 
@@ -227,10 +256,10 @@ def networkFromCLusters( clusters, linkage, size ):
 if __name__ == '__main__':
     setLogLevel( 'info' )
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
-    buildings = tp.computeBuildingAverages()
+    buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
     linkage = tp.computeLinkage(printDendogram = False)
     clusters = tp.computeClusters()
-    networkFromCLusters(clusters, linkage, len(buildings))
+    networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
     #print clusters
 
     #createNetwork(4,2) #2^4 hosts

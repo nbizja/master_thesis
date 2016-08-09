@@ -15,6 +15,7 @@ class TopologyGenerator():
 
 		np.set_printoptions(suppress=True)
 		apsByBuildings = {}
+		buildingNames = []
 		fieldnames = ['APname', 'x', 'y', 'floor']
 		with open('/home/ubuntu/Downloads/APlocations_clean.csv', 'rb') as csvfile:
 		#AP, x coordinate (-1 = unknown), y coordinate (-1 = unknown), z coordinate (floor, 99 = unknown)
@@ -23,9 +24,11 @@ class TopologyGenerator():
 		    for row in reader:
 		        apPosition = row['APname'].find('AP')
 		        buildingName = row['APname'][0:apPosition]
+
 		        if buildingName in apsByBuildings:
 		            apsByBuildings[buildingName].append(row)
 		        else:
+		            buildingNames.append(buildingName)
 		            apsByBuildings[buildingName] = [row]
 
 
@@ -46,7 +49,7 @@ class TopologyGenerator():
 		        buildingAverages[buildingName] = [x/size, y/size]
 
 		self.buildingAverages = buildingAverages
-		return self.buildingAverages
+		return self.buildingAverages, apsByBuildings, buildingNames
 
 	def computeLinkage( self, printDendogram = False ):
 		# generate two clusters: a with 100 points, b with 50:
