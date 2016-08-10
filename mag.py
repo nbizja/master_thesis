@@ -120,7 +120,7 @@ def addGatewayHost( net, numberOFHosts ):
     net.get(hostname).setIP('10.' + host)
     print '* Gateway host ' + hostname + ' with ip ' + '10.' + host
     print '* Creating server on a gateway host...'
-    createServer(net.get('h16'))
+    createServer(net, 16)
 
 def addCacheHosts( net, numberOfSwitches, placement ):
     "Adding caches in the network"
@@ -144,10 +144,6 @@ def addCacheHosts( net, numberOfSwitches, placement ):
             net.get('s' + switch).attach('s' + switch + '-' + eth, True)
             net.get(hostname).setIP('10.' + host)
 
-
-def createServer( host ):
-    host.cmd('python simple_server.py &')
-
 def simulation( net ):
     print '* h1 requesting video1'
     #net.get('h1').cmd('wget 10.0.0.17:8080/video1.mp4')
@@ -164,12 +160,35 @@ def simulation( net ):
     print '* Testing connectivity:'
     old = new
 
+def createServer( net, hostIndex ):
+    print '*** Creating main server on network root\n'
+    host = net.addHost('h' + str(hostIndex))
+    rootSwitch = net.get('s1')
+    net.addLink(host, rootSwitch)
+    host.cmd('python simple_server.py &')
+    
+    return hostIndex + 1
+
 def addHostsToSwitch( net, switch, buildingIndex, nextHostIndex, apsByBuildings, buildingNames ):
     buildingName = buildingNames[buildingIndex]
     nhi = nextHostIndex
     for ap in apsByBuildings[buildingName]:
         h = net.addHost('h' + str(nhi))
         net.addLink( h , switch)
+        nhi = nhi + 1
+
+    return nhi
+
+def addCacheServers( net, nextHostIndex, switchCount ):
+    print "**** Adding cache servers on every switch: h%d - h%d" % (nextHostIndex, nextHostIndex + switchCount - 1)
+    nhi = nextHostIndex
+    for i in range(1, switchCount):
+        s = net.get('s' + str(i))
+        cache = net.addHost('h' + str(nhi))
+        cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
+        cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
+        cache.cmd('./home/ubuntu/mag/squid/run-squid.sh ' + str(nhi))
+        net.addLink(cache, s)
         nhi = nhi + 1
 
     return nhi
@@ -247,6 +266,9 @@ def networkFromCLusters( clusters, linkage, size, apsByBuildings, buildingNames 
                 buildingIndex = buildingIndex + 1 
 
         links = lnks
+
+    nextHostIndex = addCacheServers( net, nextHostIndex, si)
+    nextHostIndex = createServer(net, nextHostIndex)
 
     print '*** Starting network\n'
     net.start()
