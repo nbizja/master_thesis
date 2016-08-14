@@ -128,6 +128,7 @@ bwm-ng --output html --unit bytes -T sum --outfile /home/ubuntu/mag/netrk_stats.
 
 
 
+
 Mobillity models:
 
 Random waypoint

@@ -30,6 +30,7 @@ class MovementDataParser():
 
     def saveResults( self, requests ):
         #save computation
+        test = 0
     
 
 if __name__ == '__main__':

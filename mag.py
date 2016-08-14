@@ -160,7 +160,6 @@ class NetworkManager():
         host = net.addHost('h' + str(hostIndex))
         self.gatewayIP = str(IPAddress(167772160 + hostIndex))
         print self.gatewayIP
-        #self.gatewayIP = '10.0.2.156' #NOT WORKING. Dunno why. net.get('h' + str(hostIndex)).IP()
         rootSwitch = net.get('s1')
         net.addLink(host, rootSwitch)
         host.cmd('python simple_server.py &')
@@ -176,7 +175,6 @@ class NetworkManager():
             self.hostsMap[ap['APname']] = nhi
             nhi = nhi + 1
 
-        print self.hostsMap
         return nhi
 
     def addCacheServers( self, net, nextHostIndex, switchCount ):
@@ -187,7 +185,7 @@ class NetworkManager():
             cache = net.addHost('h' + str(nhi))
             cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
             cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
-            cache.cmd('./home/ubuntu/mag/squid/run-squid.sh ' + str(nhi))
+            cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(nhi))
             net.addLink(cache, s)
             nhi = nhi + 1
 
@@ -212,8 +210,6 @@ class NetworkManager():
                 parentSwitch = net.get('s' + str(si - 1))
                 tempSwitch1 = linkage[li, 0] - size
                 tempSwitch2 = linkage[li, 1] - size
-                #print tempSwitch1
-                #print tempSwitch2
 
                 if (tempSwitch1 >= 0):
                     s = net.addSwitch('s' + str(si))
@@ -266,8 +262,8 @@ class NetworkManager():
                     nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
                     buildingIndex = buildingIndex + 1 
 
-                #if nextHostIndex > 10: #TESTING
-                #    break
+                if nextHostIndex > 10: #TESTING
+                    break
             links = lnks
 
         print '*** Adding cache servers\n'
@@ -284,14 +280,22 @@ class NetworkManager():
     def simulation( self, net, requests ):
         print '*** Simulation started'
         print 'Num of requests ' + str(len(requests))
-        test = 0
+        limit = 500 
+        requestCount = 0
         for ts, aps in requests.iteritems():
             for ap in aps:
                 if ap in self.hostsMap:
-                    print self.hostsMap[ap]
                     net.get('h' + str(self.hostsMap[ap])).cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
-                else:
-                    print ap + ' not in hostsMap'
+                    requestCount = requestCount + 1
+                if requestCount > limit:
+                	break
+            if requestCount > limit:
+            	break
+
+
+    def clearClientArps( self, net):
+        for i in range(1, self.hostCount + 1):
+            net.get('h' + str(i)).cmd('sudo arp -d ' + self.gatewayIP)
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
@@ -303,9 +307,9 @@ if __name__ == '__main__':
     net = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
-    movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/')
-    requests = movementParser.getMovementInfo()
-    networkManager.simulation(net, requests)
+    #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/')
+    #requests = movementParser.getMovementInfo()
+    #networkManager.simulation(net, requests)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
