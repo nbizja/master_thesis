@@ -181,19 +181,27 @@ class NetworkManager():
         print "**** Adding cache servers on every switch: h%d - h%d" % (nextHostIndex, nextHostIndex + switchCount - 1)
         nhi = nextHostIndex
         for i in range(1, switchCount):
+            print '* Creating cache host ' + str(nhi)
             s = net.get('s' + str(i))
             cache = net.addHost('h' + str(nhi))
-            cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
-            cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
-            cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(nhi))
             net.addLink(cache, s)
+            self.startSquid(cache, nhi)
             nhi = nhi + 1
 
         return nhi
 
+    def startSquid( self, cache, cacheId):
+        print "Changing iptables"
+
+        cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
+        cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
+        print "Running squid"
+        res = cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
+        print res
+
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
-        net = Mininet( controller=None )
+        net = Mininet( controller=None, cleanup=True )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
         

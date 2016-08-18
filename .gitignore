@@ -1,4 +1,6 @@
 *.mp4
 /venv
 video*
-
+errors.txt
+temp
+simple_server.log
