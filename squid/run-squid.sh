@@ -4,7 +4,7 @@ echo "include /home/ubuntu/mag/squid/squid-base.conf
 pid_filename /var/run/squid$1.pid
 cache_log /var/log/squid/cache$1.log
 access_log /var/log/squid/access$1.log
-cache_dir ufs /var/cache/squid$1 64 16 128" > /home/ubuntu/mag/squid/squid$1.conf;
+cache_dir ufs /data/squid$1 64 16 128" > /home/ubuntu/mag/squid/squid.conf;
 
 sudo rm /var/run/squid$1.pid;
 

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.node import OVSSwitch, RemoteController
@@ -12,6 +11,8 @@ from os import curdir, sep
 from TopologyGenerator import TopologyGenerator
 from MovementDataParser import MovementDataParser
 from netaddr import IPAddress
+import csv
+import random
 
 class MobilitySwitch( OVSSwitch ):
     "Switch that can reattach and rename interfaces"
@@ -75,69 +76,15 @@ class MobilitySwitch( OVSSwitch ):
 class NetworkManager():
 
     def __init__(self):
-        self.hostsMap = {}
+        self.accessPoints = {}
         self.gatewayIP = ''
+        self.numberOfUsers = 50
 
     def moveHost( self, host, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
         oldSwitch.moveIntf( sintf, newSwitch, port=newPort )
         return hintf, sintf
-        
-    def createNetwork(self, depth, fanout):
-        "A simple test of mobility"
-        print '* Simple mobility test'
-        self.net = TreeNet( depth=depth, fanout=fanout, switch=MobilitySwitch, controller=None)
-        print '* Starting network:'
-
-        ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
-        #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
-        
-        net.start()
-
-
-        addGatewayHost(net, pow(fanout, depth))
-        addCacheHosts(net, 15, 'All')
-        #print '* Testing network'
-        #net.pingAll()
-        
-        CLI( net )
-        net.stop()
-
-    def addGatewayHost( self, net, numberOFHosts ):
-        "Adding host at the root which simulates the internet."
-        host = str((numberOFHosts + 1))
-        hostname = 'h' + host
-        net.addHost(hostname)
-        # 15 Mbps bandwidth and 10 ms delay on link to internet
-        net.addLink(net.get('s1'), net.get(hostname))
-        net.get('s1').attach('s1-eth3', True)
-        net.get(hostname).setIP('10.' + host)
-        print '* Gateway host ' + hostname + ' with ip ' + '10.' + host
-        print '* Creating server on a gateway host...'
-        createServer(net, 16)
-
-    def addCacheHosts( self, net, numberOfSwitches, placement ):
-        "Adding caches in the network"
-        
-        print '* Creating cache hosts...'
-        if placement == 'All':
-            for i in range(1, numberOfSwitches):
-                host = str(i + 17)
-                switch = str(i)
-                hostname = 'h' + host
-                h = net.addHost(hostname)
-                h.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
-                h.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
-                h.cmd('./home/ubuntu/mag/squid/run-squid.sh')
-                net.addLink(net.get('s' + switch), net.get(hostname))
-                eth = 'eth4'
-                #Root switch already has 4 ports
-                if i == 1:
-                    eth = 'eth5'
-
-                net.get('s' + switch).attach('s' + switch + '-' + eth, True)
-                net.get(hostname).setIP('10.' + host)
 
     def simulation_old( self, net ):
         print '* h1 requesting video1'
@@ -166,22 +113,32 @@ class NetworkManager():
         
         return hostIndex + 1
 
-    def addHostsToSwitch( self, net, switch, buildingIndex, nextHostIndex, apsByBuildings, buildingNames ):
+    def addAccessPoints( self, net, switch, buildingIndex, nextSwitchIndex, apsByBuildings, buildingNames ):
         buildingName = buildingNames[buildingIndex]
-        nhi = nextHostIndex
+        nsi = nextSwitchIndex
         for ap in apsByBuildings[buildingName]:
-            h = net.addHost('h' + str(nhi))
-            net.addLink( h , switch)
-            self.hostsMap[ap['APname']] = nhi
-            nhi = nhi + 1
+            s = net.addSwitch('s' + str(nsi))
+            net.addLink( s , switch)
+            self.accessPoints[ap['APname']] = nsi
+            nsi = nsi + 1
 
-        return nhi
+        return nsi
+
+    def addHosts( self, net, nextHostIndex ):
+        hostIndex = nextHostIndex
+        lastHost = nextHostIndex + self.numberOfUsers
+        while hostIndex <= lastHost:
+            si = random.choice(self.accessPoints.values())
+            h = net.addHost('h%d' % hostIndex)
+            s = net.get('s%d' % si)
+            net.addLink(h, s)
+            hostIndex = hostIndex + 1
+
 
     def addCacheServers( self, net, nextHostIndex, switchCount ):
         print "**** Adding cache servers on every switch: h%d - h%d" % (nextHostIndex, nextHostIndex + switchCount - 1)
         nhi = nextHostIndex
         for i in range(1, switchCount):
-            print '* Creating cache host ' + str(nhi)
             s = net.get('s' + str(i))
             cache = net.addHost('h' + str(nhi))
             net.addLink(cache, s)
@@ -191,13 +148,9 @@ class NetworkManager():
         return nhi
 
     def startSquid( self, cache, cacheId):
-        print "Changing iptables"
-
         cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
         cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
-        print "Running squid"
-        res = cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
-        print res
+        cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
 
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
@@ -226,9 +179,8 @@ class NetworkManager():
                     if (linkage[tempSwitch1, 0] >= size):
                         lnks.append(linkage[tempSwitch1, 0])
                     else:
-                        nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
                         buildingIndex = buildingIndex + 1
-
 
                     s = net.addSwitch('s' + str(si))
                     si = si + 1
@@ -236,7 +188,7 @@ class NetworkManager():
                     if (linkage[tempSwitch1, 1] >= size):
                         lnks.append(linkage[tempSwitch1, 1])
                     else:
-                        nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
                         buildingIndex = buildingIndex + 1                
 
                 else:
@@ -251,7 +203,7 @@ class NetworkManager():
                     if (linkage[tempSwitch2, 0] >= size):
                         lnks.append(linkage[tempSwitch2, 0])
                     else:
-                        nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
                         buildingIndex = buildingIndex + 1 
 
                     s = net.addSwitch('s' + str(si))
@@ -260,46 +212,45 @@ class NetworkManager():
                     if (linkage[tempSwitch2, 1] >= size):
                         lnks.append(linkage[tempSwitch2, 1])
                     else:
-                        nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
                         buildingIndex = buildingIndex + 1 
 
                 else:
                     s = net.addSwitch('s' + str(si))
                     si = si + 1
                     net.addLink( s, parentSwitch )
-                    nextHostIndex = self.addHostsToSwitch(net, s, buildingIndex, nextHostIndex, apsByBuildings, buildingNames)
+                    si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
                     buildingIndex = buildingIndex + 1 
 
-                if nextHostIndex > 10: #TESTING
-                    break
             links = lnks
 
         print '*** Adding cache servers\n'
         nextHostIndex = self.addCacheServers( net, nextHostIndex, si)
         print '*** Creating gateway host and starting web server\n'
         nextHostIndex = self.createServer(net, nextHostIndex)
-
+        nextHostIndex = self.addHosts( net, nextHostIndex)
 
         print '*** Starting network\n'
         net.start()
 
         return net
 
-    def simulation( self, net, requests ):
+    def simulation( self, net ):
         print '*** Simulation started'
-        print 'Num of requests ' + str(len(requests))
+
         limit = 500 
         requestCount = 0
-        for ts, aps in requests.iteritems():
-            for ap in aps:
-                if ap in self.hostsMap:
-                    net.get('h' + str(self.hostsMap[ap])).cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
+        fieldnames = ['timestamp', 'hostIndex', 'AP']
+        with open('/data/movement.csv', 'rb') as csvfile:
+            requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
+            for req in requests:
+                if req['AP'] in self.accessPoints and int(req['hostIndex']) <= self.numberOfUsers:
+                    net.get('h' + req['hostIndex']).cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
                     requestCount = requestCount + 1
                 if requestCount > limit:
                 	break
-            if requestCount > limit:
-            	break
 
+        print requestCount
 
     def clearClientArps( self, net):
         for i in range(1, self.hostCount + 1):
@@ -315,9 +266,9 @@ if __name__ == '__main__':
     net = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
-    #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/')
-    #requests = movementParser.getMovementInfo()
-    #networkManager.simulation(net, requests)
+    movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
+    movementParser.getMovementInfo()
+    networkManager.simulation(net)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
