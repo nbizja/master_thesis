@@ -11,80 +11,17 @@ from os import curdir, sep
 from TopologyGenerator import TopologyGenerator
 from MovementDataParser import MovementDataParser
 from netaddr import IPAddress
+from MobilitySwitch import MobilitySwitch
 import csv
 import random
-
-class MobilitySwitch( OVSSwitch ):
-    "Switch that can reattach and rename interfaces"
-
-    def delIntf( self, intf ):
-        "Remove (and detach) an interface"
-        port = self.ports[ intf ]
-        del self.ports[ intf ]
-        del self.intfs[ port ]
-        del self.nameToIntf[ intf.name ]
-
-    def addIntf( self, intf, rename=False, **kwargs ):
-        "Add (and reparent) an interface"
-        OVSSwitch.addIntf( self, intf, **kwargs )
-        intf.node = self
-        if rename:
-            self.renameIntf( intf )
-
-    def attach( self, intf, isNew=False ):
-        "Attach an interface and set its port"
-        if isNew:
-            super(MobilitySwitch, self).attach(intf)
-        else:
-            port = self.ports[ intf ]
-            if port:
-                if self.isOldOVS():
-                    self.cmd( 'ovs-vsctl add-port', self, intf )
-                else:
-                    self.cmd( 'ovs-vsctl add-port', self, intf,
-                              '-- set Interface', intf,
-                              'ofport_request=%s' % port )
-                self.validatePort( intf )
-
-    def validatePort( self, intf ):
-        "Validate intf's OF port number"
-        ofport = int( self.cmd( 'ovs-vsctl get Interface', intf,
-                                'ofport' ) )
-        if ofport != self.ports[ intf ]:
-            warn( 'WARNING: ofport for', intf, 'is actually', ofport,
-                  '\n' )
-
-    def renameIntf( self, intf, newname='' ):
-        "Rename an interface (to its canonical name)"
-        intf.ifconfig( 'down' )
-        if not newname:
-            newname = '%s-eth%d' % ( self.name, self.ports[ intf ] )
-        intf.cmd( 'ip link set', intf, 'name', newname )
-        del self.nameToIntf[ intf.name ]
-        intf.name = newname
-        self.nameToIntf[ intf.name ] = intf
-        intf.ifconfig( 'up' )
-
-    def moveIntf( self, intf, switch, port=None, rename=True ):
-        "Move one of our interfaces to another switch"
-        self.detach( intf )
-        self.delIntf( intf )
-        switch.addIntf( intf, port=port, rename=rename )
-        switch.attach( intf )
-
 
 class NetworkManager():
 
     def __init__(self):
         self.accessPoints = {}
+        self.apFreePort = {}
         self.gatewayIP = ''
         self.numberOfUsers = 50
-
-    def moveHost( self, host, oldSwitch, newSwitch, newPort=None ):
-        "Move a host from old switch to new switch"
-        hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
-        oldSwitch.moveIntf( sintf, newSwitch, port=newPort )
-        return hintf, sintf
 
     def simulation_old( self, net ):
         print '* h1 requesting video1'
@@ -109,6 +46,9 @@ class NetworkManager():
         print self.gatewayIP
         rootSwitch = net.get('s1')
         net.addLink(host, rootSwitch)
+        heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
+        self.gatewayMAC = host.MAC(heth)
+        self.gatewayID = hostIndex
         host.cmd('python simple_server.py &')
         
         return hostIndex + 1
@@ -120,6 +60,7 @@ class NetworkManager():
             s = net.addSwitch('s' + str(nsi))
             net.addLink( s , switch)
             self.accessPoints[ap['APname']] = nsi
+            self.apFreePort[nsi] = 3
             nsi = nsi + 1
 
         return nsi
@@ -127,11 +68,14 @@ class NetworkManager():
     def addHosts( self, net, nextHostIndex ):
         hostIndex = nextHostIndex
         lastHost = nextHostIndex + self.numberOfUsers
+        self.hostSwitchMap = {}
         while hostIndex <= lastHost:
             si = random.choice(self.accessPoints.values())
             h = net.addHost('h%d' % hostIndex)
             s = net.get('s%d' % si)
             net.addLink(h, s)
+            self.hostSwitchMap[hostIndex] = si
+            self.apFreePort[si] += 1
             hostIndex = hostIndex + 1
 
 
@@ -154,7 +98,7 @@ class NetworkManager():
 
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
-        net = Mininet( controller=None, cleanup=True )
+        net = Mininet( controller=None, switch=MobilitySwitch, cleanup=True )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
         
@@ -228,12 +172,17 @@ class NetworkManager():
         nextHostIndex = self.addCacheServers( net, nextHostIndex, si)
         print '*** Creating gateway host and starting web server\n'
         nextHostIndex = self.createServer(net, nextHostIndex)
+        self.firstHostIndex = nextHostIndex
         nextHostIndex = self.addHosts( net, nextHostIndex)
 
         print '*** Starting network\n'
         net.start()
 
         return net
+
+    def debug( self, net, host):
+        for i in range(1, 33):
+            print host.connectionsTo(net.get('s%d' % i))
 
     def simulation( self, net ):
         print '*** Simulation started'
@@ -244,14 +193,50 @@ class NetworkManager():
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             for req in requests:
-                if req['AP'] in self.accessPoints and int(req['hostIndex']) <= self.numberOfUsers:
-                    net.get('h' + req['hostIndex']).cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
+                hostIndex = int(req['hostIndex']) + self.firstHostIndex
+                if req['AP'] in self.accessPoints and hostIndex <= self.numberOfUsers:
+                    hostCurrentlyOn = self.hostSwitchMap[hostIndex]
+                    host = net.get('h%d' % hostIndex)
+
+                    #If we need to move host
+                    APIndex = self.accessPoints[req['AP']]
+                    if hostCurrentlyOn != APIndex:
+                        #print "host " + str(hostIndex) + " currently on %d" % hostCurrentlyOn
+                        #self.debug(net, host)
+                        #CLI(net)
+                        oldSwitch = net.get('s%d' % hostCurrentlyOn)
+                        newSwitch = net.get('s%d' % APIndex)
+                        print APIndex
+                        self.hostSwitchMap[hostIndex] = APIndex
+                        self.moveHost(net, host, oldSwitch, newSwitch, newPort=self.apFreePort[APIndex] )
+                        self.apFreePort[hostCurrentlyOn] -= 1
+                        self.apFreePort[APIndex] += 1
+
+                    #TODO: move host to target AP, request random content, measure delay
+                    print "Foo %d" % hostIndex
+                    #if APIndex == 8:
+                    #    CLI(net)
+                    host.cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
+                    print "Bar"
                     requestCount = requestCount + 1
                 if requestCount > limit:
                 	break
 
         print requestCount
 
+    def moveHost( self, net, host, oldSwitch, newSwitch, newPort=None ):
+        "Move a host from old switch to new switch"
+
+        hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
+        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=True )
+
+        oldSwitch.cmd('sudo arp -d ' + host.IP())
+        oldSwitch.setARP(host.IP(), host.MAC(hintf))
+        host.cmd('sudo arp -d ' + self.gatewayIP)
+        host.setARP(self.gatewayIP, self.gatewayMAC)
+        net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
+        return hintf, sintf
+    
     def clearClientArps( self, net):
         for i in range(1, self.hostCount + 1):
             net.get('h' + str(i)).cmd('sudo arp -d ' + self.gatewayIP)
