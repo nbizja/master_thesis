@@ -136,7 +136,7 @@ class NetworkManager():
 
         tree = self.createTree(net, mySwitch, 2, 2)
         print '*** Adding cache servers\n'
-        CLI(net)
+
         self.addCacheServers(net)
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
@@ -160,22 +160,21 @@ class NetworkManager():
         limit = 500 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
-        CLI(net)
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             for req in requests:
                 hostIndex = int(req['hostIndex']) + self.firstHostIndex
+                
                 if req['AP'] in self.accessPoints and hostIndex <= self.numberOfUsers:
                     hostCurrentlyOn = self.hostSwitchMap[hostIndex]
                     host = net.get('h%d' % hostIndex)
 
                     #If we need to move host
                     APIndex = self.accessPoints[req['AP']]
-                    if hostCurrentlyOn != APIndex:
+                    if hostCurrentlyOn != APIndex and False:
                         #print "host " + str(hostIndex) + " currently on %d" % hostCurrentlyOn
                         #self.debug(net, host)
                         #CLI(net)
-
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
                         newSwitch = net.get('s%d' % APIndex)
                         print APIndex
@@ -227,7 +226,7 @@ if __name__ == '__main__':
     print '*** Getting requests data'
     movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     movementParser.getMovementInfo()
-    #networkManager.simulation(net)
+    networkManager.simulation(net)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts

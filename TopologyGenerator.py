@@ -7,10 +7,13 @@ import numpy as np
 from numpy import array
 from scipy.cluster.hierarchy import cophenet
 from scipy.spatial.distance import pdist
+from subset import *
 
 class TopologyGenerator():
     def __init__(self, path):
         self.path = path
+        global subset
+        self.subset = subset
 
     def computeBuildingAverages( self ):
 
@@ -25,12 +28,12 @@ class TopologyGenerator():
             for row in reader:
                 apPosition = row['APname'].find('AP')
                 buildingName = row['APname'][0:apPosition]
-
-                if buildingName in apsByBuildings:
-                    apsByBuildings[buildingName].append(row)
-                else:
-                    buildingNames.append(buildingName)
-                    apsByBuildings[buildingName] = [row]
+                if buildingName in subset:
+                    if buildingName in apsByBuildings:
+                        apsByBuildings[buildingName].append(row)
+                    else:
+                        buildingNames.append(buildingName)
+                        apsByBuildings[buildingName] = [row]
 
 
 

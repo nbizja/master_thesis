@@ -23,19 +23,19 @@ class myHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write("Hello World")
             return
-        if self.path == "/ryu":
-            #Open the static file requested and send it
-            f = open(curdir + sep + 'ryu.png') 
-            self.send_response(200)
-            self.send_header('Cache-Control', 'public, max-age=31536000')
-            self.send_header('ETag', '696897696a7c876b7e')
-            self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
-            self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
-            self.send_header('Content-type','image/png')
-            self.end_headers()
-            self.wfile.write(f.read())
-            f.close()
-            return
+
+        #Open the static file requested and send it
+        f = open(curdir + sep + self.path + '.png') 
+        self.send_response(200)
+        self.send_header('Cache-Control', 'public, max-age=31536000')
+        self.send_header('ETag', '696897' + self.path.zfill(2) + '96a7c876b7e')
+        self.send_header('Date', time.strftime("%a, %d %Y %H:%M:%S GMT"))
+        self.send_header('Last-Modified', 'Sat, 10 Jun 2010 10:00:00 GMT')
+        self.send_header('Content-type','image/jpg')
+        self.end_headers()
+        self.wfile.write(f.read())
+        f.close()
+        return
 
         try:
             #Check the file extension required and
