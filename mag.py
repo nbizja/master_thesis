@@ -12,6 +12,7 @@ from TopologyGenerator import TopologyGenerator
 from MovementDataParser import MovementDataParser
 from netaddr import IPAddress
 from MobilitySwitch import MobilitySwitch
+from MySwitch import MySwitch
 import csv
 import random
 
@@ -40,68 +41,80 @@ class NetworkManager():
         print '* Testing connectivity:'
         old = new
 
-    def createServer( self, net, hostIndex ):
+    def createServer( self, net ):
         print '***  Creating main server on network root\n'
-        host = net.addHost('h' + str(hostIndex))
-        self.gatewayIP = str(IPAddress(167772160 + hostIndex))
+        host = net.addHost('h' + str(self.nextHostIndex))
+        self.gatewayIP = str(IPAddress(167772160 + self.nextHostIndex))
         print self.gatewayIP
         rootSwitch = net.get('s1')
         net.addLink(host, rootSwitch)
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = host.MAC(heth)
-        self.gatewayID = hostIndex
+        self.gatewayID = self.nextHostIndex
         host.cmd('python simple_server.py &')
         
-        return hostIndex + 1 
+        self.nextHostIndex += 1
 
-    def addAccessPoints( self, net, nextSwitchIndex, apsByBuildings, buildingNames):
-        nsi = nextSwitchIndex
-        for apGroup in self.apQueue:
-            switch = net.get('s%d' % apGroup[0])
-            buildingName = buildingNames[apGroup[1]]
-            txt = "Switch " + str(apGroup[0]) + " has APS " 
-            for ap in apsByBuildings[buildingName]:
-                txt += " %d," % nsi
-                s = net.addSwitch('s' + str(nsi))
-                net.addLink( s , switch)
-                self.accessPoints[ap['APname']] = nsi
-                self.apFreePort[nsi] = 3
-                nsi = nsi + 1
+    def addAccessPoints( self, net, mySwitch, buildingName):
+        print "Adding access points " + buildingName
+        for ap in self.apsByBuildings[buildingName]:
+            child = MySwitch(self.nextSwitchIndex, isAP=True)
 
-            print txt
-        return nsi
+            mySwitch.addChild(child)
+            s = net.addSwitch('s' + str(self.nextSwitchIndex))
+            net.addLink( s , net.get('s%d' % mySwitch.getId()))
+            self.accessPoints[ap['APname']] = self.nextSwitchIndex
+            self.apFreePort[self.nextSwitchIndex] = 3
+            print "S%d" % self.nextSwitchIndex
+            self.nextSwitchIndex += 1
 
-    def addHosts( self, net, nextHostIndex ):
-        hostIndex = nextHostIndex
-        lastHost = nextHostIndex + self.numberOfUsers
+        self.currentBuilding += 1
+        return mySwitch
+
+    def createTree(self, net, mySwitch, span, depth):
+        self.nextSwitchIndex += 1            
+        print "adding S%d" % mySwitch.getId()
+        
+        if depth == 0:
+            return self.addAccessPoints(net, mySwitch, self.buildingNames[self.currentBuilding])
+
+        children = []
+        for i in range(1, span + 1):
+            s = net.addSwitch('s%d' % self.nextSwitchIndex)
+            net.addLink(s, net.get('s%d' % mySwitch.getId()))
+            children.append(self.createTree(net, MySwitch(self.nextSwitchIndex), span, depth - 1))
+            
+        mySwitch.setChildren(children)
+        return mySwitch
+    
+
+    def addHosts( self, net, mySwitch ):
         self.hostSwitchMap = {}
-        while hostIndex <= lastHost:
-            si = random.choice(self.accessPoints.values())
-            h = net.addHost('h%d' % hostIndex)
-            s = net.get('s%d' % si)
+        aps = mySwitch.getAccessPoints()
+        k = 0
+        for i in range(self.nextHostIndex, self.nextHostIndex + self.numberOfUsers + 1):
+            sw = random.choice(aps)
+            h = net.addHost('h%d' % i)
+            s = net.get('s%d' % sw.getId())
             net.addLink(h, s)
-            self.hostSwitchMap[hostIndex] = si
-            self.apFreePort[si] += 1
-            hostIndex = hostIndex + 1
+            self.hostSwitchMap[i] = sw.getId()
+            self.apFreePort[sw.getId()] += 1
+            k = i
+        self.nextHostIndex = k + 1
 
 
-    def addCacheServers( self, net, nextHostIndex, switchCount ):
-        print "**** Adding cache servers on every switch: h%d - h%d" % (nextHostIndex, nextHostIndex + switchCount - 1)
-        nhi = nextHostIndex
-        for i in range(1, switchCount):
-            s = net.get('s' + str(i))
-            cache = net.addHost('h' + str(nhi))
+    def addCacheServers( self, net):
+        for i in range(1, self.nextSwitchIndex):
+            s = net.get('s%d' % i)
+            cache = net.addHost('h%d' % i)
             net.addLink(cache, s)
-            self.startSquid(cache, nhi)
-            nhi = nhi + 1
-
-        return nhi
+            self.startSquid(cache, i)
+            self.nextHostIndex = i + 1
 
     def startSquid( self, cache, cacheId):
         cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
         cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
         cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
-
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
         net = Mininet( controller=None, switch=MobilitySwitch, cleanup=True )
@@ -109,90 +122,28 @@ class NetworkManager():
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
         
         si = 2
+        mySwitch = MySwitch(1)
         net.addSwitch('s1')
-        nextHostIndex = 1
-        buildingIndex = 0
-        links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
+        self.nextHostIndex = 1
+        self.nextSwitchIndex = 1
+        self.currentBuilding = 0
+        self.buildingNames = buildingNames
+        self.apsByBuildings = apsByBuildings
+
+        #buildingIndex = 0
+        #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
-        while(len(links) != 0):
-            lnks = []
-            for li in links:
-                li = li - size
-                parentSwitchIndex = si - 1
-                parentSwitch = net.get('s' + str(parentSwitchIndex))
-                txt = "PS " + str(parentSwitchIndex)
-                tempSwitch1 = linkage[li, 0] - size
-                tempSwitch2 = linkage[li, 1] - size
 
-                if (tempSwitch1 >= 0):
-                    s = net.addSwitch('s' + str(si))
-                    txt += " has children " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-                    if (linkage[tempSwitch1, 0] >= size):
-                        lnks.append(linkage[tempSwitch1, 0])
-                    else:
-                        self.apQueue.append([si - 1, buildingIndex])
-                        buildingIndex = buildingIndex + 1
-
-                    s = net.addSwitch('s' + str(si))
-                    txt += ", " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-                    if (linkage[tempSwitch1, 1] >= size):
-                        lnks.append(linkage[tempSwitch1, 1])
-                    else:
-                        self.apQueue.append([si - 1, buildingIndex])
-                        buildingIndex = buildingIndex + 1                
-
-                else:
-                    s = net.addSwitch('s' + str(si))
-                    txt += " has children " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-
-                if (tempSwitch2 >= 0):
-                    s = net.addSwitch('s' + str(si))
-                    txt += ", " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-                    if (linkage[tempSwitch2, 0] >= size):
-                        lnks.append(linkage[tempSwitch2, 0])
-                    else:
-                        self.apQueue.append([si - 1, buildingIndex])
-                        buildingIndex = buildingIndex + 1 
-
-                    s = net.addSwitch('s' + str(si))
-                    txt += ", " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-                    if (linkage[tempSwitch2, 1] >= size):
-                        lnks.append(linkage[tempSwitch2, 1])
-                    else:
-                        self.apQueue.append([si - 1, buildingIndex])
-                        buildingIndex = buildingIndex + 1 
-
-                else:
-                    s = net.addSwitch('s' + str(si))
-                    txt += ", " + str(si)
-                    si = si + 1
-                    net.addLink( s, parentSwitch )
-                    self.apQueue.append([si - 1, buildingIndex])
-                    buildingIndex = buildingIndex + 1
-
-                print txt 
-                si = self.addAccessPoints(net, si, apsByBuildings, buildingNames)
-
-            links = lnks
-
-
+        tree = self.createTree(net, mySwitch, 2, 2)
         print '*** Adding cache servers\n'
-        nextHostIndex = self.addCacheServers( net, nextHostIndex, si)
+        CLI(net)
+        self.addCacheServers(net)
         print '*** Creating gateway host and starting web server\n'
-        nextHostIndex = self.createServer(net, nextHostIndex)
+        self.createServer(net)
+
         self.lastSwitch = si - 1
-        self.firstHostIndex = nextHostIndex
-        nextHostIndex = self.addHosts( net, nextHostIndex)
+        self.firstHostIndex = self.nextHostIndex
+        self.addHosts( net, tree)
 
         print '*** Starting network\n'
         net.start()
@@ -276,7 +227,7 @@ if __name__ == '__main__':
     print '*** Getting requests data'
     movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     movementParser.getMovementInfo()
-    networkManager.simulation(net)
+    #networkManager.simulation(net)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
