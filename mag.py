@@ -56,10 +56,10 @@ class NetworkManager():
         
         self.nextHostIndex += 1
 
-    def addAccessPoints( self, net, mySwitch, buildingName):
+    def addAccessPoints( self, net, mySwitch, depth, buildingName):
         print "Adding access points " + buildingName
         for ap in self.apsByBuildings[buildingName]:
-            child = MySwitch(self.nextSwitchIndex, isAP=True)
+            child = MySwitch(self.nextSwitchIndex, APName=ap['APname'], depth=depth, isAP=True)
 
             mySwitch.addChild(child)
             s = net.addSwitch('s' + str(self.nextSwitchIndex))
@@ -76,14 +76,14 @@ class NetworkManager():
         self.nextSwitchIndex += 1            
         #print "adding S%d" % mySwitch.getId()
         
-        if depth == 0:
-            return self.addAccessPoints(net, mySwitch, self.buildingNames[self.currentBuilding])
+        if depth == self.maxDepth:
+            return self.addAccessPoints(net, mySwitch, depth, self.buildingNames[self.currentBuilding])
 
         children = []
         for i in range(1, span + 1):
             s = net.addSwitch('s%d' % self.nextSwitchIndex)
             net.addLink(s, net.get('s%d' % mySwitch.getId()))
-            children.append(self.createTree(net, MySwitch(self.nextSwitchIndex), span, depth - 1))
+            children.append(self.createTree(net, MySwitch(self.nextSwitchIndex, depth=depth), span, depth + 1))
             
         mySwitch.setChildren(children)
         return mySwitch
@@ -123,19 +123,20 @@ class NetworkManager():
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
         
         si = 2
-        mySwitch = MySwitch(1)
+        mySwitch = MySwitch(1, depth=0)
         net.addSwitch('s1')
         self.nextHostIndex = 1
         self.nextSwitchIndex = 1
         self.currentBuilding = 0
         self.buildingNames = buildingNames
         self.apsByBuildings = apsByBuildings
+        self.maxDepth = 2
 
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
 
-        tree = self.createTree(net, mySwitch, 3, 2)
+        tree = self.createTree(net, mySwitch, 2, 0)
         print '*** Adding cache servers\n'
 
         self.addCacheServers(net)
@@ -149,7 +150,7 @@ class NetworkManager():
         print '*** Starting network\n'
         net.start()
 
-        return net
+        return net, tree
 
     def debug( self, net, host):
         for i in range(1, 33):
@@ -201,7 +202,7 @@ class NetworkManager():
                 else:
                     print "Request not in APS"
                 if requestCount > limit:
-                	break
+                    break
             print "Delay sum: " + str(totalDelay)
 
         print requestCount
@@ -232,7 +233,7 @@ if __name__ == '__main__':
     buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
     linkage = tp.computeLinkage(printDendogram = False)
     clusters = tp.computeClusters()
-    net = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
+    net, tree = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
     movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')

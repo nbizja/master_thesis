@@ -2,10 +2,12 @@
 
 class MySwitch():
 
-    def __init__(self, id, children=[], isAP=False):
+    def __init__(self, id, depth, APName='', children=[], isAP=False):
         self.id = id
         self.children = children
+        self.depth = depth
         self.isAP = isAP
+        self.APName = APName
         self.hosts = []
 
     def getId(self):
@@ -13,6 +15,9 @@ class MySwitch():
 
     def getChildren(self):
         return self.children
+
+    def getDepth(self):
+        return self.depth
 
     def getAccessPoints(self):
         if self.isAP:
@@ -30,6 +35,12 @@ class MySwitch():
     def isAP(self):
         return isAP
 
+    def setAPName(self, name):
+        self.APName = name
+
+    def getAPName(self):
+        return self.APName
+
     def addChild(self, child):
         self.children.append(child)
 
@@ -39,14 +50,14 @@ class MySwitch():
     def setIsAP(self, isAP):
         self.isAP = isAP
 
-    def findPath(self, nodeId):
-        if self.id == nodeId:
+    def findPathToAP(self, APName):
+        if self.APName == APName:
             return [self]
         if self.isAP:
             return []
         
         path = []
         for child in self.children:
-            path += child.findPath(nodeId)
+            path += child.findPathToAP(APName)
         return path
 
