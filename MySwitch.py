@@ -38,3 +38,15 @@ class MySwitch():
 
     def setIsAP(self, isAP):
         self.isAP = isAP
+
+    def findPath(self, nodeId):
+        if self.id == nodeId:
+            return [self]
+        if self.isAP:
+            return []
+        
+        path = []
+        for child in self.children:
+            path += child.findPath(nodeId)
+        return path
+
