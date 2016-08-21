@@ -130,7 +130,7 @@ class NetworkManager():
         self.currentBuilding = 0
         self.buildingNames = buildingNames
         self.apsByBuildings = apsByBuildings
-        self.maxDepth = 2
+        self.maxDepth = 4
 
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]

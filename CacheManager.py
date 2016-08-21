@@ -14,6 +14,8 @@ class CacheManager():
             movementData = csv.DictReader(csvfile, fieldnames, delimiter=',')
             for row in movementData:
                 hi = int(row['hostIndex'])
+                if hi < 30:
+                    hi = 1
                 if hi not in userMovement:
                     userMovement[hi] = {row['AP']: 1}
                 else:
@@ -36,21 +38,23 @@ class CacheManager():
         lca, depth = self.lowestCommonAncestor(paths)
         print depth
         print "name: " + lca.getAPName()
+
         #Move down the tree towards decreasing cost
         bestCost = self.computeCost(lca, lca, paths, userMovementPattern)
-        median = lca
-        cacheCandidates = lca.getChildren()
-        #while cacheCandidates:
-        costs = []
 
+        bestCost, median = self.getBestCost(lca, lca, bestCost, paths, userMovementPattern )
+        print "Best cost: " +str(bestCost)
+
+    def getBestCost(self, lca, currentBest, bestCost, paths, userMovementPattern):
+        cacheCandidates = currentBest.getChildren()
         for cacheCandidate in cacheCandidates:
             cost = self.computeCost(lca, cacheCandidate, paths, userMovementPattern)
-            costs.append(cost)
             if cost < bestCost: #Minimiying the cost
                 bestCost = cost
                 median = cacheCandidate
-                cacheCandidates = cacheCandidate.getChildren()
-
+                return self.getBestCost(lca, cacheCandidate, bestCost, paths, userMovementPattern)
+                
+        return bestCost, currentBest
 
 
     def getPaths(self, accessPoints):
