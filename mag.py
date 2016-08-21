@@ -18,6 +18,7 @@ import random
 class NetworkManager():
 
     def __init__(self):
+        self.apQueue = []
         self.accessPoints = {}
         self.apFreePort = {}
         self.gatewayIP = ''
@@ -51,18 +52,23 @@ class NetworkManager():
         self.gatewayID = hostIndex
         host.cmd('python simple_server.py &')
         
-        return hostIndex + 1
+        return hostIndex + 1 
 
-    def addAccessPoints( self, net, switch, buildingIndex, nextSwitchIndex, apsByBuildings, buildingNames ):
-        buildingName = buildingNames[buildingIndex]
+    def addAccessPoints( self, net, nextSwitchIndex, apsByBuildings, buildingNames):
         nsi = nextSwitchIndex
-        for ap in apsByBuildings[buildingName]:
-            s = net.addSwitch('s' + str(nsi))
-            net.addLink( s , switch)
-            self.accessPoints[ap['APname']] = nsi
-            self.apFreePort[nsi] = 3
-            nsi = nsi + 1
+        for apGroup in self.apQueue:
+            switch = net.get('s%d' % apGroup[0])
+            buildingName = buildingNames[apGroup[1]]
+            txt = "Switch " + str(apGroup[0]) + " has APS " 
+            for ap in apsByBuildings[buildingName]:
+                txt += " %d," % nsi
+                s = net.addSwitch('s' + str(nsi))
+                net.addLink( s , switch)
+                self.accessPoints[ap['APname']] = nsi
+                self.apFreePort[nsi] = 3
+                nsi = nsi + 1
 
+            print txt
         return nsi
 
     def addHosts( self, net, nextHostIndex ):
@@ -112,66 +118,79 @@ class NetworkManager():
             lnks = []
             for li in links:
                 li = li - size
-                parentSwitch = net.get('s' + str(si - 1))
+                parentSwitchIndex = si - 1
+                parentSwitch = net.get('s' + str(parentSwitchIndex))
+                txt = "PS " + str(parentSwitchIndex)
                 tempSwitch1 = linkage[li, 0] - size
                 tempSwitch2 = linkage[li, 1] - size
 
                 if (tempSwitch1 >= 0):
                     s = net.addSwitch('s' + str(si))
+                    txt += " has children " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
                     if (linkage[tempSwitch1, 0] >= size):
                         lnks.append(linkage[tempSwitch1, 0])
                     else:
-                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
+                        self.apQueue.append([si - 1, buildingIndex])
                         buildingIndex = buildingIndex + 1
 
                     s = net.addSwitch('s' + str(si))
+                    txt += ", " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
                     if (linkage[tempSwitch1, 1] >= size):
                         lnks.append(linkage[tempSwitch1, 1])
                     else:
-                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
+                        self.apQueue.append([si - 1, buildingIndex])
                         buildingIndex = buildingIndex + 1                
 
                 else:
                     s = net.addSwitch('s' + str(si))
+                    txt += " has children " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
 
                 if (tempSwitch2 >= 0):
                     s = net.addSwitch('s' + str(si))
+                    txt += ", " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
                     if (linkage[tempSwitch2, 0] >= size):
                         lnks.append(linkage[tempSwitch2, 0])
                     else:
-                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
+                        self.apQueue.append([si - 1, buildingIndex])
                         buildingIndex = buildingIndex + 1 
 
                     s = net.addSwitch('s' + str(si))
+                    txt += ", " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
                     if (linkage[tempSwitch2, 1] >= size):
                         lnks.append(linkage[tempSwitch2, 1])
                     else:
-                        si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
+                        self.apQueue.append([si - 1, buildingIndex])
                         buildingIndex = buildingIndex + 1 
 
                 else:
                     s = net.addSwitch('s' + str(si))
+                    txt += ", " + str(si)
                     si = si + 1
                     net.addLink( s, parentSwitch )
-                    si = self.addAccessPoints(net, s, buildingIndex, si, apsByBuildings, buildingNames)
-                    buildingIndex = buildingIndex + 1 
+                    self.apQueue.append([si - 1, buildingIndex])
+                    buildingIndex = buildingIndex + 1
+
+                print txt 
+                si = self.addAccessPoints(net, si, apsByBuildings, buildingNames)
 
             links = lnks
+
 
         print '*** Adding cache servers\n'
         nextHostIndex = self.addCacheServers( net, nextHostIndex, si)
         print '*** Creating gateway host and starting web server\n'
         nextHostIndex = self.createServer(net, nextHostIndex)
+        self.lastSwitch = si - 1
         self.firstHostIndex = nextHostIndex
         nextHostIndex = self.addHosts( net, nextHostIndex)
 
@@ -190,6 +209,7 @@ class NetworkManager():
         limit = 500 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
+        CLI(net)
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             for req in requests:
@@ -204,6 +224,7 @@ class NetworkManager():
                         #print "host " + str(hostIndex) + " currently on %d" % hostCurrentlyOn
                         #self.debug(net, host)
                         #CLI(net)
+
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
                         newSwitch = net.get('s%d' % APIndex)
                         print APIndex
@@ -230,8 +251,10 @@ class NetworkManager():
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
         oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=True )
 
-        oldSwitch.cmd('sudo arp -d ' + host.IP())
-        oldSwitch.setARP(host.IP(), host.MAC(hintf))
+        for i in range(1, self.lastSwitch + 1):
+            net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
+        #oldSwitch.cmd('sudo arp -d ' + host.IP())
+        #oldSwitch.setARP(host.IP(), host.MAC(hintf))
         host.cmd('sudo arp -d ' + self.gatewayIP)
         host.setARP(self.gatewayIP, self.gatewayMAC)
         net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
