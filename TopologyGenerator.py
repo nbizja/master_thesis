@@ -51,11 +51,11 @@ class TopologyGenerator():
                     size = size + 1
                 break #TESTING
 
-            if size > 0.0:     
+            if size > 0.0 and buildingName in subset:     
                 buildingAverages[buildingName] = [x/size, y/size]
             
-            if bi >= buildingLimits: #TESTING
-                break
+            #if bi >= buildingLimits: #TESTING
+            #    break
             bi = bi + 1 #TESTING
 
         self.buildingAverages = buildingAverages

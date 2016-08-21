@@ -13,6 +13,7 @@ from MovementDataParser import MovementDataParser
 from netaddr import IPAddress
 from MobilitySwitch import MobilitySwitch
 from MySwitch import MySwitch
+from random import randint
 import csv
 import random
 
@@ -65,7 +66,7 @@ class NetworkManager():
             net.addLink( s , net.get('s%d' % mySwitch.getId()))
             self.accessPoints[ap['APname']] = self.nextSwitchIndex
             self.apFreePort[self.nextSwitchIndex] = 3
-            print "S%d" % self.nextSwitchIndex
+            #print "S%d" % self.nextSwitchIndex
             self.nextSwitchIndex += 1
 
         self.currentBuilding += 1
@@ -73,7 +74,7 @@ class NetworkManager():
 
     def createTree(self, net, mySwitch, span, depth):
         self.nextSwitchIndex += 1            
-        print "adding S%d" % mySwitch.getId()
+        #print "adding S%d" % mySwitch.getId()
         
         if depth == 0:
             return self.addAccessPoints(net, mySwitch, self.buildingNames[self.currentBuilding])
@@ -134,7 +135,7 @@ class NetworkManager():
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
 
-        tree = self.createTree(net, mySwitch, 2, 2)
+        tree = self.createTree(net, mySwitch, 3, 2)
         print '*** Adding cache servers\n'
 
         self.addCacheServers(net)
@@ -162,10 +163,13 @@ class NetworkManager():
         fieldnames = ['timestamp', 'hostIndex', 'AP']
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
+            totalDelay = 0.0
             for req in requests:
-                hostIndex = int(req['hostIndex']) + self.firstHostIndex
-                
-                if req['AP'] in self.accessPoints and hostIndex <= self.numberOfUsers:
+                #WARNING: mapping multiple users into one.
+
+                hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
+                #print hostIndex
+                if req['AP'] in self.accessPoints:
                     hostCurrentlyOn = self.hostSwitchMap[hostIndex]
                     host = net.get('h%d' % hostIndex)
 
@@ -184,14 +188,21 @@ class NetworkManager():
                         self.apFreePort[APIndex] += 1
 
                     #TODO: move host to target AP, request random content, measure delay
-                    print "Foo %d" % hostIndex
+                    #print "Foo %d" % hostIndex
                     #if APIndex == 8:
                     #    CLI(net)
-                    host.cmd('wget -qO- ' + self.gatewayIP + '/ryu &> /dev/null')
-                    print "Bar"
+                    picture = str(randint(1,78))
+                    delay = host.cmd("curl --no-keepalive -so /dev/null -w '%{time_total}\n' http://" + self.gatewayIP +'/helloworld') #+ picture + "/")
+                    totalDelay += float(delay[2:])
+                    print str(totalDelay)
+                    #host.cmd('wget -qO- ' + self.gatewayIP + '/' + picture +' &> /dev/null')
+                    #print "Bar"
                     requestCount = requestCount + 1
+                else:
+                    print "Request not in APS"
                 if requestCount > limit:
                 	break
+            print "Delay sum: " + str(totalDelay)
 
         print requestCount
 

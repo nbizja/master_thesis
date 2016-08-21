@@ -15,7 +15,7 @@ class MovementDataParser():
         self.subset = subset
 
     def getMovementInfo( self , getSubset=False):
-        if isfile(self.sortedRequestsPath) and not getSubset:
+        if isfile(self.sortedRequestsPath):
             return True
 
         start = 986990247
@@ -29,19 +29,21 @@ class MovementDataParser():
         for f in listdir(self.path):
             with open(self.path + f, 'rb') as csvfile:
                 reader = csv.DictReader(csvfile, fieldnames, delimiter='\t')
+                ok = False
                 for row in reader:
                     if row['AP'] != 'OFF':
                         requests.append([row['timestamp'], str(hostIndex), row['AP']])
                         apPosition = row['AP'].find('AP')
                         buildingName = row['AP'][0:apPosition]
                         if buildingName in self.subset:
+                            ok = True
                             if buildingName in usersByBuildings:
                                 if hostIndex not in usersByBuildings[buildingName]:
                                     usersByBuildings[buildingName].append(hostIndex)
                             else:
                                 usersByBuildings[buildingName] = [hostIndex]
-
-            hostIndex = hostIndex + 1
+            if ok:
+                hostIndex = hostIndex + 1
 
         maxLengths = []
 

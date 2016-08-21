@@ -15,7 +15,7 @@ class myHandler(BaseHTTPRequestHandler):
     
     #Handler for the GET requests
     def do_GET(self):
-        logging.info(self.path)
+        #logging.info(self.path)
         
         if self.path == "/helloworld":
             self.send_response(200)
@@ -25,7 +25,7 @@ class myHandler(BaseHTTPRequestHandler):
             return
 
         #Open the static file requested and send it
-        f = open(curdir + sep + self.path + '.png') 
+        f = open('/data/pictures/' + self.path + '.jpg') 
         self.send_response(200)
         self.send_header('Cache-Control', 'public, max-age=31536000')
         self.send_header('ETag', '696897' + self.path.zfill(2) + '96a7c876b7e')
