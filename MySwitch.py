@@ -29,8 +29,6 @@ class MySwitch():
         aps = []
     
         for child in self.getChildren():
-            raw_input("ID: " + str(self.index))
-
             aps += child.getAccessPoints()
 
         return aps

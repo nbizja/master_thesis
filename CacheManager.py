@@ -133,5 +133,6 @@ class CacheManager():
             print "Candidate id: %d" % lcaCandidate.getId()
             for path in paths:
                 if path[depth].getId() != lcaCandidate.getId():
-                    return lcaCandidate, depth
+                    return paths[0][depth - 1], depth - 1 #return previous candidate
+
         return paths[0][0], 0
