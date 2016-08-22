@@ -40,12 +40,7 @@ class CacheManager():
         print "Computing median"
         #get list of paths for all used access points
         paths = self.getPaths(userMovementPattern.keys())
-        print "path 2"
-        for hop in paths[0]:
-            print hop.getId()
-        print "path 2"
-        for hop in paths[1]:
-            print hop.getId()
+
         #Compute lowest common ancestor
         lca, depth = self.lowestCommonAncestor(paths)
 
@@ -62,8 +57,10 @@ class CacheManager():
 
     def getBestCost(self, lca, currentBest, bestCost, paths, userMovementPattern):
         cacheCandidates = currentBest.getChildren()
+        print "First best cost %d" % bestCost
         for cacheCandidate in cacheCandidates:
             cost = self.computeCost(lca, cacheCandidate, paths, userMovementPattern)
+            print "Cache candidate %d has cost of %d" % (cacheCandidate.getId(), cost)
             if cost < bestCost: #Minimiying the cost
                 bestCost = cost
                 median = cacheCandidate
@@ -101,26 +98,31 @@ class CacheManager():
         #lca is definitely in one of the paths
         #paths are oriented from lca to leaf
         totalCost = 0
+        pathNum = 0
         for path in paths:
             pathCost = 0
             candidateOnPath = False
             APName = path[ -1 ].getAPName()
             numOfRequests = movementPattern[APName]
-            for hop in path:
+            for hop in reversed(path):
                 if candidate.getId() != hop.getId():
                     pathCost += self.costFunction(numOfRequests, hop.getDepth()) #Cost function
                 else:
                     candidateOnPath = True
+                    break
             
             if not candidateOnPath:
+                print "Candidate %d not on path - depth %d" % (candidate.getId(), candidate.getDepth() - lca.getDepth()) 
                 pathCost += self.costFunction(numOfRequests, candidate.getDepth() - lca.getDepth())
 
+            print "Path %d has cost %d" % (pathNum, pathCost)
             totalCost += pathCost
+            pathNum += 1
 
-        return pathCost
+        return totalCost
 
     def costFunction(self, numOfRequests, depth):
-        return float(numOfRequests) / (depth + 1)
+        return float(numOfRequests) / float(depth + 1)
 
     def lowestCommonAncestor(self, paths):
         print "Computing lowest common ancestor"

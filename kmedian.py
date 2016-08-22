@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
 
     userMovement = {
-        1: {'AcadBldg10AP10': 10, 'AcadBldg19AP1': 10} #Result should be S!
+        1: {'AcadBldg10AP10': 100, 'AcadBldg19AP1': 5, 'AcadBldg16AP1': 5} #Result should be S!
     }
     cacheManager.computeKMedianCaches(k=1, userId=1, userMovement=userMovement)
     #networkManager.simulation(net)
