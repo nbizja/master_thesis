@@ -178,18 +178,25 @@ class NetworkManager():
                         #CLI(net)
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
                         newSwitch = net.get('s%d' % APIndex)
-                        print APIndex
                         self.hostSwitchMap[hostIndex] = APIndex
                         self.moveHost(net, host, oldSwitch, newSwitch, newPort=self.apFreePort[APIndex] )
                         self.apFreePort[hostCurrentlyOn] -= 1
                         self.apFreePort[APIndex] += 1
 
+                    for i in range(1, self.nextSwitchIndex):
+                        net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC()))
+                        net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
+                    
+                    host.cmd('sudo arp -d ' + self.gatewayIP)
+                    net.get('h%d' % self.gatewayID).cmd('sudo arp -d ' + host.IP())
                     #TODO: move host to target AP, request random content, measure delay
                     #print "Foo %d" % hostIndex
                     #if APIndex == 8:
                     #    CLI(net)
+                    print "H%d  %s" % (hostIndex, host.MAC())
                     picture = str(randint(1,78))
                     delay = host.cmd("curl --no-keepalive -so /dev/null -w '%{time_total}\n' http://" + self.gatewayIP +'/helloworld') #+ picture + "/")
+                    #CLI(net)
                     totalDelay += float(delay[2:])
                     print str(totalDelay)
                     #host.cmd('wget -qO- ' + self.gatewayIP + '/' + picture +' &> /dev/null')
@@ -206,23 +213,15 @@ class NetworkManager():
     def moveHost( self, net, host, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"
 
-        hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
-        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
-
         #for sw in net.switches:
         #    print 'del-flows dl_dst=' + host.MAC(hintf)
         #    print sw.dpctl( 'del-flows dl_dst=' + host.MAC(hintf) )
-        for i in range(1, self.nextSwitchIndex):
-            net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC(hintf)))
-            #print net.get('s%d' % i).dpctl('del-flows "dl_dst=' + host.MAC(hintf)+'"' )
-            #print net.get('s%d' % i).cmd('ovs-ofctl --strict del-flows dl_dst=' + host.MAC(hintf))
-            net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
+
+        hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
+        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
         #oldSwitch.cmd('sudo arp -d ' + host.IP())
         #oldSwitch.setARP(host.IP(), host.MAC(hintf))
-        #print host.MAC(hintf)
         #CLI(net)
-        #host.cmd('sudo arp -d ' + self.gatewayIP)
-        #host.setARP(self.gatewayIP, self.gatewayMAC)
         #net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
         return hintf, sintf
     
