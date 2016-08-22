@@ -26,22 +26,6 @@ class NetworkManager():
         self.gatewayIP = ''
         self.numberOfUsers = 50
 
-    def simulation_old( self, net ):
-        print '* h1 requesting video1'
-        #net.get('h1').cmd('wget 10.0.0.17:8080/video1.mp4')
-        #print '* success'
-        net.get('s5').attach('s5-eth4', True)
-        h1, old = net.get( 'h1', 's4' )
-        new = net[ 's5' ]
-        port = 15
-        print '* Moving', h1, 'from', old, 'to', new, 'port', port
-        hintf, sintf = moveHost( h1, old, new, newPort=port )
-        print '*', hintf, 'is now connected to', sintf
-        print '* New network:'
-        printConnections( net.switches )
-        print '* Testing connectivity:'
-        old = new
-
     def createServer( self, net ):
         print '***  Creating main server on network root\n'
         host = net.addHost('h' + str(self.nextHostIndex))
@@ -69,7 +53,7 @@ class NetworkManager():
             self.accessPoints[ap['APname']] = self.nextSwitchIndex
             self.apFreePort[self.nextSwitchIndex] = 3
             self.nextSwitchIndex += 1
-            print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS(" +ap['APname'] + " "+ str(child.getId()) + ""
+            print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
             break
 
         self.currentBuilding += 1
@@ -149,7 +133,6 @@ class NetworkManager():
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
         #CLI(net)
-        self.lastSwitch = si - 1
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
@@ -174,6 +157,7 @@ class NetworkManager():
         limit = 500 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
+        CLI(net)
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
@@ -188,7 +172,7 @@ class NetworkManager():
 
                     #If we need to move host
                     APIndex = self.accessPoints[req['AP']]
-                    if hostCurrentlyOn != APIndex and False:
+                    if hostCurrentlyOn != APIndex :
                         #print "host " + str(hostIndex) + " currently on %d" % hostCurrentlyOn
                         #self.debug(net, host)
                         #CLI(net)
@@ -211,8 +195,8 @@ class NetworkManager():
                     #host.cmd('wget -qO- ' + self.gatewayIP + '/' + picture +' &> /dev/null')
                     #print "Bar"
                     requestCount = requestCount + 1
-                else:
-                    print "Request not in APS"
+                #else:
+                #    print "Request not in APS"
                 if requestCount > limit:
                     break
             print "Delay sum: " + str(totalDelay)
@@ -223,15 +207,23 @@ class NetworkManager():
         "Move a host from old switch to new switch"
 
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
-        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=True )
+        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
 
-        for i in range(1, self.lastSwitch + 1):
+        #for sw in net.switches:
+        #    print 'del-flows dl_dst=' + host.MAC(hintf)
+        #    print sw.dpctl( 'del-flows dl_dst=' + host.MAC(hintf) )
+        for i in range(1, self.nextSwitchIndex):
+            net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC(hintf)))
+            #print net.get('s%d' % i).dpctl('del-flows "dl_dst=' + host.MAC(hintf)+'"' )
+            #print net.get('s%d' % i).cmd('ovs-ofctl --strict del-flows dl_dst=' + host.MAC(hintf))
             net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
         #oldSwitch.cmd('sudo arp -d ' + host.IP())
         #oldSwitch.setARP(host.IP(), host.MAC(hintf))
-        host.cmd('sudo arp -d ' + self.gatewayIP)
-        host.setARP(self.gatewayIP, self.gatewayMAC)
-        net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
+        #print host.MAC(hintf)
+        #CLI(net)
+        #host.cmd('sudo arp -d ' + self.gatewayIP)
+        #host.setARP(self.gatewayIP, self.gatewayMAC)
+        #net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
         return hintf, sintf
     
     def clearClientArps( self, net):
