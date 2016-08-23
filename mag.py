@@ -28,7 +28,7 @@ class NetworkManager():
 
     def createServer( self, net ):
         print '***  Creating main server on network root\n'
-        host = net.addHost('h' + str(self.nextHostIndex))
+        host = net.addHost('h' + str(self.nextHostIndex), mac='00:00:00:00:00:01')
         self.gatewayIP = str(IPAddress(167772160 + self.nextHostIndex))
         print self.gatewayIP
         rootSwitch = net.get('s1')
@@ -85,7 +85,7 @@ class NetworkManager():
         k = 0
         for i in range(self.nextHostIndex, self.nextHostIndex + self.numberOfUsers + 1):
             sw = random.choice(aps)
-            h = net.addHost('h%d' % i)
+            h = net.addHost('h%d' % i, mac='00:00:00:00:00:%02d' % i)
             s = net.get('s%d' % sw.getId())
             net.addLink(h, s)
             self.hostSwitchMap[i] = sw.getId()
@@ -97,7 +97,7 @@ class NetworkManager():
     def addCacheServers( self, net):
         for i in range(1, self.nextSwitchIndex):
             s = net.get('s%d' % i)
-            cache = net.addHost('h%d' % i)
+            cache = net.addHost('h%d' % i, mac='00:00:00:00:00:%02d' % i)
             net.addLink(cache, s)
             self.startSquid(cache, i)
             self.nextHostIndex = i + 1
@@ -127,6 +127,7 @@ class NetworkManager():
         print '*** Creating topology\n'
 
         tree = self.createTree(net, 2, 0)
+
         print '*** Adding cache servers\n'
 
         #self.addCacheServers(net)
@@ -136,9 +137,12 @@ class NetworkManager():
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
-        print '*** Starting network\n'
+        print '*** Starting network\n'        
 
         net.start()
+
+        print "*** Adding static flows"
+        self.setupStaticFlows(net)
 
         return net, tree
 
@@ -151,16 +155,22 @@ class NetworkManager():
             for c in tree.getChildren():
                 self.debug(c, depth + 1)
 
+    def setupStaticFlows(self, net):
+        for i in range(2, self.nextSwitchIndex):
+            net.get('s%d' % i).cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=360,dl_type=0x800,nw_dst=%s,action=output:1' % (i, self.gatewayIP))
+        print net.get('s1').cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=360,dl_type=0x800,nw_dst=%s,action=output:3' % (i, self.gatewayIP))
+
     def simulation( self, net ):
         print '*** Simulation started'
 
         limit = 500 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
-        CLI(net)
+
         with open('/data/movement.csv', 'rb') as csvfile:
             requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
+            CLI(net)
             for req in requests:
                 #WARNING: mapping multiple users into one.
 
@@ -173,7 +183,7 @@ class NetworkManager():
                     #If we need to move host
                     APIndex = self.accessPoints[req['AP']]
                     if hostCurrentlyOn != APIndex :
-                        #print "host " + str(hostIndex) + " currently on %d" % hostCurrentlyOn
+                        print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
                         #self.debug(net, host)
                         #CLI(net)
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
@@ -183,12 +193,14 @@ class NetworkManager():
                         self.apFreePort[hostCurrentlyOn] -= 1
                         self.apFreePort[APIndex] += 1
 
-                    for i in range(1, self.nextSwitchIndex):
-                        net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC()))
-                        net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
+                    #for i in range(1, self.nextSwitchIndex):
+                    #    net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC()))
+                    #    net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
                     
-                    host.cmd('sudo arp -d ' + self.gatewayIP)
-                    net.get('h%d' % self.gatewayID).cmd('sudo arp -d ' + host.IP())
+                    #host.cmd('sudo arp -d ' + self.gatewayIP)
+                    #host.setARP(self.gatewayIP, self.gatewayMAC)
+                    #net.get('h%d' % self.gatewayID).cmd('sudo arp -d ' + host.IP()+'; sudo arp %s %s' % (host.IP(), host.MAC()))
+                    
                     #TODO: move host to target AP, request random content, measure delay
                     #print "Foo %d" % hostIndex
                     #if APIndex == 8:
@@ -219,6 +231,7 @@ class NetworkManager():
 
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
         oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
+        host.cmd('sudo arp -i eth0 -s %s %s ' % (self.gatewayIP, host.MAC()))
         #oldSwitch.cmd('sudo arp -d ' + host.IP())
         #oldSwitch.setARP(host.IP(), host.MAC(hintf))
         #CLI(net)
