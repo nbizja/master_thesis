@@ -14,11 +14,13 @@ from netaddr import IPAddress
 from MobilitySwitch import MobilitySwitch
 from MySwitch import MySwitch
 from random import randint
+from RyuRestClient import RyuRestClient
 import csv
 import random
 import requests
 import json
 import time
+
 class NetworkManager():
 
     def __init__(self):
@@ -28,11 +30,13 @@ class NetworkManager():
         self.gatewayIP = ''
         self.numberOfUsers = 50
 
+        random.seed( 10 )
+
     def createServer( self, net ):
-        print '***  Creating main server on network root\n'
         host = net.addHost('h' + str(self.nextHostIndex), mac='00:00:00:00:00:01')
         self.gatewayIP = str(IPAddress(167772160 + self.nextHostIndex))
-        print self.gatewayIP
+        print '***  Creating main server on network root %s' % self.gatewayIP
+        
         rootSwitch = net.get('s1')
         net.addLink(host, rootSwitch)
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
@@ -116,7 +120,7 @@ class NetworkManager():
     def addCacheServers( self, net):
         for i in range(1, self.nextSwitchIndex):
             s = net.get('s%d' % i)
-            cache = net.addHost('h%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
+            cache = net.addHost('h%d' % (i + 1), ip='10.0.0.%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
             net.addLink(cache, s)
             self.startSquid(cache, i + 1)
         
@@ -150,15 +154,15 @@ class NetworkManager():
         print '*** Adding cache servers\n'
         self.addCacheServers(net)
 
-        print '*** Adding hosts\n'
+        print '*** Adding hosts from h%d to h%d' % (self.nextHostIndex, self.nextHostIndex + self.numberOfUsers)
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
         print '*** Starting network\n'        
         net.start()
 
-        print "*** Adding static flows"
-        self.setupStaticFlows(net)
+        #print "*** Adding static flows"
+        #self.setupStaticFlows(net)
 
         return net, tree
 
@@ -179,9 +183,18 @@ class NetworkManager():
         print net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=2,nw_dst=%s,action=output:3' % self.gatewayIP)
 
 
-    def simulation( self, net ):
+    def cacheAllTheThings(self, tree):
+        apsIds = list(map((lambda ap: ap.getId()), tree.getAccessPoints()))
+        ryuClient = RyuRestClient('127.0.0.1', '6633', apsIds)
+        ryuClient.addCacheRoute(net.get('h70'), net.get('h3'))
+        print "Cached all the things"
+
+
+    def simulation( self, net, tree ):
         print '*** Simulation started'
 
+        self.cacheAllTheThings(tree)
+        CLI(net)
         limit = 50 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
@@ -253,9 +266,9 @@ if __name__ == '__main__':
     net, tree = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
-    movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
-    movementParser.getMovementInfo()
-    networkManager.simulation(net)
+    #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
+    #movementParser.getMovementInfo()
+    networkManager.simulation(net, tree)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
