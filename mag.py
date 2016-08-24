@@ -43,8 +43,6 @@ class NetworkManager():
         self.nextHostIndex += 1
 
     def addAccessPoints( self, net, mySwitch, depth, buildingName):
-
-        #print "Adding access points " + buildingName
         accessPoints = []
         for ap in self.apsByBuildings[buildingName]:
             child = MySwitch(self.nextSwitchIndex, depth, APName=ap['APname'], isAP=True)
@@ -67,14 +65,12 @@ class NetworkManager():
         return accessPoints
 
     def createTree(self, net, span, depth, parentIndex=0):
-        #print "Switch " + str(self.nextSwitchIndex) + " from parent " + str(parentIndex)
         mySwitch = MySwitch(self.nextSwitchIndex, depth=depth)
         s = net.addSwitch('s%d' % self.nextSwitchIndex)
         if parentIndex > 0:
             net.addLink(s, net.get('s%d' % parentIndex))           
 
         self.nextSwitchIndex += 1            
-        #print "adding S%d" % mySwitch.getId()
         
         if depth >= self.maxDepth:
             mySwitch.setChildren(self.addAccessPoints(net, mySwitch, depth, self.buildingNames[self.currentBuilding]))
@@ -108,7 +104,7 @@ class NetworkManager():
         k = 0
         for i in range(self.nextHostIndex, self.nextHostIndex + self.numberOfUsers + 1):
             sw = random.choice(aps)
-            h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%02d' % i)
+            h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%s' % ((hex(i))[-2:]))
             s = net.get('s%d' % sw.getId())
             net.addLink(h, s)
             self.hostSwitchMap[i] = sw.getId()
@@ -120,10 +116,11 @@ class NetworkManager():
     def addCacheServers( self, net):
         for i in range(1, self.nextSwitchIndex):
             s = net.get('s%d' % i)
-            cache = net.addHost('h%d' % i, mac='00:00:00:00:00:%02d' % i)
+            cache = net.addHost('h%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
             net.addLink(cache, s)
-            self.startSquid(cache, i)
-            self.nextHostIndex = i + 1
+            self.startSquid(cache, i + 1)
+        
+        self.nextHostIndex = self.nextSwitchIndex + 1
 
     def startSquid( self, cache, cacheId):
         cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
@@ -134,10 +131,7 @@ class NetworkManager():
         net = Mininet( controller=None, switch=MobilitySwitch, cleanup=True )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
-        
-        si = 2
-        #mySwitch = MySwitch(1, depth=0)
-        #net.addSwitch('s1')
+
         self.nextHostIndex = 1
         self.nextSwitchIndex = 1
         self.currentBuilding = 0
@@ -148,19 +142,19 @@ class NetworkManager():
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
-
         tree = self.createTree(net, 2, 0)
 
-        print '*** Adding cache servers\n'
-
-        #self.addCacheServers(net)
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
+
+        print '*** Adding cache servers\n'
+        self.addCacheServers(net)
+
+        print '*** Adding hosts\n'
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
         print '*** Starting network\n'        
-
         net.start()
 
         print "*** Adding static flows"
@@ -209,8 +203,6 @@ class NetworkManager():
                     APIndex = self.accessPoints[req['AP']]
                     if hostCurrentlyOn != APIndex:
                         print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
-                        #self.debug(net, host)
-                        #CLI(net)
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
                         newSwitch = net.get('s%d' % APIndex)
                         self.hostSwitchMap[hostIndex] = APIndex
@@ -221,21 +213,6 @@ class NetworkManager():
 
                     print "H%d  %s" % (hostIndex, host.MAC())
 
-                    ##print str(totalDelay)
-                    #net.get('h1').cmd('sudo arp -d %s' % host.IP())
-                    #net.get('s1').cmd('sudo arp -d %s' % host.IP())
-
-                    #deleteData = json.dumps({
-                    #        "dpid": 1,
-                    #        "match":{
-                    #            "dl_dst": host.MAC()
-                    #        }
-                    #})
-                    #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
-                    #    headers = {'Content-Type': 'application/json'},
-                    #    data =deleteData
-                    #)
-
                     picture = str(randint(1,78))
                     result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
 
@@ -245,14 +222,6 @@ class NetworkManager():
                         failedRequests += 1
                     else:
                         totalDelay += float(delay[2:])
-                    
-
-
-                    #response = host.cmd('wget http://' + self.gatewayIP + '/helloworld')
-
-                    #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
-                    #    headers = {'Content-Type': 'application/json'},
-                    #    data = deleteData)
    
                     requestCount = requestCount + 1
                     if requestCount > 10 and requestCount == failedRequests:
@@ -268,53 +237,11 @@ class NetworkManager():
     def moveHost( self, net, host, hostIndex, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"
 
-        #for i in range(1, self.nextSwitchIndex):
-        #    net.get('s%d' % i).cmd('sudo arp -d %s' % host.IP())
-        #    r = requests.post('http://localhost:8080/stats/flowentry/delete', 
-        #        headers = {'Content-Type': 'application/json'},
-        #        data = json.dumps({
-        #        "dpid": i,
-        #        "match":{
-        #            "dl_dst": host.MAC()
-        #        }
-        #        })
-        #    )
-
-        #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
-        #    headers = {'Content-Type': 'application/json'},
-        #    data = json.dumps({
-        #    "dpid": 1,
-        #    "match":{
-        #        "dl_dst": host.MAC()
-        #    }
-        #    })
-        #)
-
-        mac = host.MAC().split(':')
-        newMac =  ':'.join(['%01d' % hostIndex]+ mac[1:5] + ['%01d' % (int(mac[5]) + 1)])
-        host.setMAC(newMac)
-
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
         oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
+        oldSwitch.cmd('sudo arp -d ' + host.IP())
 
-        #ip = host.IP().split('.')
-        #newIp = '.'.join(ip[0:3] + [str(int(ip[3]) + 1)])
-        #print newIp
-        #host.setIP(newIp)
-        #CLI(net)
-        #host.cmd('sudo arp -i h%d-eth0 -s %s %s ' % (hostIndex, self.gatewayIP, self.gatewayMAC))
-        #net.get('h1').cmd('sudo arp -i h%d-eth0 -s %s %s ' % (self.gatewayID, host.IP(), host.MAC()))
-
-
-        #oldSwitch.cmd('sudo arp -d ' + host.IP())
-        #oldSwitch.setARP(host.IP(), host.MAC(hintf))
-        #CLI(net)
-        #net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
         return host
-    
-    def clearClientArps( self, net):
-        for i in range(1, self.hostCount + 1):
-            net.get('h' + str(i)).cmd('sudo arp -d ' + self.gatewayIP)
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
