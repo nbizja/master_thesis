@@ -16,7 +16,9 @@ from MySwitch import MySwitch
 from random import randint
 import csv
 import random
-
+import requests
+import json
+import time
 class NetworkManager():
 
     def __init__(self):
@@ -51,7 +53,12 @@ class NetworkManager():
             net.addLink( s , net.get('s%d' % mySwitch.getId()))
 
             self.accessPoints[ap['APname']] = self.nextSwitchIndex
-            self.apFreePort[self.nextSwitchIndex] = 3
+            freePorts = [0 for i in range(50)]
+            freePorts[0] = -1
+            freePorts[1] = -1
+            freePorts[2] = -1
+
+            self.apFreePort[self.nextSwitchIndex] = freePorts
             self.nextSwitchIndex += 1
             print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
             break
@@ -79,17 +86,33 @@ class NetworkManager():
             return mySwitch
     
 
+    def occupyFreePort(self, switchIndex, hostIndex):
+        portIndex = 0
+        for fp in self.apFreePort[switchIndex]:
+            if fp == 0:
+                self.apFreePort[switchIndex][portIndex] = hostIndex
+                return portIndex + 1
+            portIndex += 1
+
+    def freeOccupiedPort(self, switchIndex, hostIndex):
+        portIndex = 0
+        for fp in self.apFreePort[switchIndex]:
+            if fp == hostIndex:
+                self.apFreePort[switchIndex][portIndex] = 0
+                return portIndex + 1
+            portIndex += 1
+
     def addHosts( self, net, mySwitch ):
         self.hostSwitchMap = {}
         aps = mySwitch.getAccessPoints()
         k = 0
         for i in range(self.nextHostIndex, self.nextHostIndex + self.numberOfUsers + 1):
             sw = random.choice(aps)
-            h = net.addHost('h%d' % i, mac='00:00:00:00:00:%02d' % i)
+            h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%02d' % i)
             s = net.get('s%d' % sw.getId())
             net.addLink(h, s)
             self.hostSwitchMap[i] = sw.getId()
-            self.apFreePort[sw.getId()] += 1
+            self.occupyFreePort(sw.getId(), i)
             k = i
         self.nextHostIndex = k + 1
 
@@ -133,7 +156,6 @@ class NetworkManager():
         #self.addCacheServers(net)
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
-        #CLI(net)
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
@@ -157,21 +179,24 @@ class NetworkManager():
 
     def setupStaticFlows(self, net):
         for i in range(2, self.nextSwitchIndex):
-            net.get('s%d' % i).cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=360,dl_type=0x800,nw_dst=%s,action=output:1' % (i, self.gatewayIP))
-        print net.get('s1').cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=360,dl_type=0x800,nw_dst=%s,action=output:3' % (i, self.gatewayIP))
+            net.get('s%d' % i).cmd('sudo arp -i s%d-eth1 -s %s %s ' % (i, self.gatewayIP, self.gatewayMAC))
+            net.get('s%d' % i).cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=20,dl_type=0x800,nw_dst=%s,action=output:1' % (i, self.gatewayIP))
+        print net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=1,nw_dst=%s,action=output:3' % self.gatewayIP)
+        print net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=2,nw_dst=%s,action=output:3' % self.gatewayIP)
+
 
     def simulation( self, net ):
         print '*** Simulation started'
 
-        limit = 500 
+        limit = 50 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
 
         with open('/data/movement.csv', 'rb') as csvfile:
-            requests = csv.DictReader(csvfile, fieldnames, delimiter=',')
+            userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
-            CLI(net)
-            for req in requests:
+            failedRequests = 0
+            for req in userRequests:
                 #WARNING: mapping multiple users into one.
 
                 hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
@@ -182,61 +207,110 @@ class NetworkManager():
 
                     #If we need to move host
                     APIndex = self.accessPoints[req['AP']]
-                    if hostCurrentlyOn != APIndex :
+                    if hostCurrentlyOn != APIndex:
                         print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
                         #self.debug(net, host)
                         #CLI(net)
                         oldSwitch = net.get('s%d' % hostCurrentlyOn)
                         newSwitch = net.get('s%d' % APIndex)
                         self.hostSwitchMap[hostIndex] = APIndex
-                        self.moveHost(net, host, oldSwitch, newSwitch, newPort=self.apFreePort[APIndex] )
-                        self.apFreePort[hostCurrentlyOn] -= 1
-                        self.apFreePort[APIndex] += 1
+                        self.freeOccupiedPort(APIndex, hostIndex)
+                        newPort = self.occupyFreePort(APIndex, hostIndex)
 
-                    #for i in range(1, self.nextSwitchIndex):
-                    #    net.get('s%d' % i).cmd('ovs-ofctl del-flows s%d dl_dst=%s' % (i, host.MAC()))
-                    #    net.get('s%d' % i).cmd('sudo arp -d ' + host.IP())
-                    
-                    #host.cmd('sudo arp -d ' + self.gatewayIP)
-                    #host.setARP(self.gatewayIP, self.gatewayMAC)
-                    #net.get('h%d' % self.gatewayID).cmd('sudo arp -d ' + host.IP()+'; sudo arp %s %s' % (host.IP(), host.MAC()))
-                    
-                    #TODO: move host to target AP, request random content, measure delay
-                    #print "Foo %d" % hostIndex
-                    #if APIndex == 8:
-                    #    CLI(net)
+                        host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
+
                     print "H%d  %s" % (hostIndex, host.MAC())
+
+                    ##print str(totalDelay)
+                    #net.get('h1').cmd('sudo arp -d %s' % host.IP())
+                    #net.get('s1').cmd('sudo arp -d %s' % host.IP())
+
+                    #deleteData = json.dumps({
+                    #        "dpid": 1,
+                    #        "match":{
+                    #            "dl_dst": host.MAC()
+                    #        }
+                    #})
+                    #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
+                    #    headers = {'Content-Type': 'application/json'},
+                    #    data =deleteData
+                    #)
+
                     picture = str(randint(1,78))
-                    delay = host.cmd("curl --no-keepalive -so /dev/null -w '%{time_total}\n' http://" + self.gatewayIP +'/helloworld') #+ picture + "/")
-                    #CLI(net)
-                    totalDelay += float(delay[2:])
-                    print str(totalDelay)
-                    #host.cmd('wget -qO- ' + self.gatewayIP + '/' + picture +' &> /dev/null')
-                    #print "Bar"
+                    result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
+
+                    code, delay = result.split(',')
+
+                    if int(code) != 200:
+                        failedRequests += 1
+                    else:
+                        totalDelay += float(delay[2:])
+                    
+
+
+                    #response = host.cmd('wget http://' + self.gatewayIP + '/helloworld')
+
+                    #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
+                    #    headers = {'Content-Type': 'application/json'},
+                    #    data = deleteData)
+   
                     requestCount = requestCount + 1
-                #else:
-                #    print "Request not in APS"
-                if requestCount > limit:
-                    break
+                    if requestCount > 10 and requestCount == failedRequests:
+                        break
+
+                    if requestCount > limit:
+                        break
+            print "Total requests: %d  Failed requests: %d "  % (requestCount, failedRequests)
             print "Delay sum: " + str(totalDelay)
 
         print requestCount
 
-    def moveHost( self, net, host, oldSwitch, newSwitch, newPort=None ):
+    def moveHost( self, net, host, hostIndex, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"
 
-        #for sw in net.switches:
-        #    print 'del-flows dl_dst=' + host.MAC(hintf)
-        #    print sw.dpctl( 'del-flows dl_dst=' + host.MAC(hintf) )
+        #for i in range(1, self.nextSwitchIndex):
+        #    net.get('s%d' % i).cmd('sudo arp -d %s' % host.IP())
+        #    r = requests.post('http://localhost:8080/stats/flowentry/delete', 
+        #        headers = {'Content-Type': 'application/json'},
+        #        data = json.dumps({
+        #        "dpid": i,
+        #        "match":{
+        #            "dl_dst": host.MAC()
+        #        }
+        #        })
+        #    )
+
+        #r = requests.post('http://localhost:8080/stats/flowentry/delete', 
+        #    headers = {'Content-Type': 'application/json'},
+        #    data = json.dumps({
+        #    "dpid": 1,
+        #    "match":{
+        #        "dl_dst": host.MAC()
+        #    }
+        #    })
+        #)
+
+        mac = host.MAC().split(':')
+        newMac =  ':'.join(['%01d' % hostIndex]+ mac[1:5] + ['%01d' % (int(mac[5]) + 1)])
+        host.setMAC(newMac)
 
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
         oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
-        host.cmd('sudo arp -i eth0 -s %s %s ' % (self.gatewayIP, host.MAC()))
+
+        #ip = host.IP().split('.')
+        #newIp = '.'.join(ip[0:3] + [str(int(ip[3]) + 1)])
+        #print newIp
+        #host.setIP(newIp)
+        #CLI(net)
+        #host.cmd('sudo arp -i h%d-eth0 -s %s %s ' % (hostIndex, self.gatewayIP, self.gatewayMAC))
+        #net.get('h1').cmd('sudo arp -i h%d-eth0 -s %s %s ' % (self.gatewayID, host.IP(), host.MAC()))
+
+
         #oldSwitch.cmd('sudo arp -d ' + host.IP())
         #oldSwitch.setARP(host.IP(), host.MAC(hintf))
         #CLI(net)
         #net.get('h%d' % self.gatewayID).setARP(host.IP(), host.MAC(hintf))
-        return hintf, sintf
+        return host
     
     def clearClientArps( self, net):
         for i in range(1, self.hostCount + 1):
