@@ -193,8 +193,9 @@ class NetworkManager():
     def simulation( self, net, tree ):
         print '*** Simulation started'
 
-        self.cacheAllTheThings(tree)
         CLI(net)
+
+        self.cacheAllTheThings(tree)
         limit = 50 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
@@ -221,7 +222,7 @@ class NetworkManager():
                         self.hostSwitchMap[hostIndex] = APIndex
                         self.freeOccupiedPort(APIndex, hostIndex)
                         newPort = self.occupyFreePort(APIndex, hostIndex)
-
+                        print newPort
                         host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
 
                     print "H%d  %s" % (hostIndex, host.MAC())
@@ -251,8 +252,8 @@ class NetworkManager():
         "Move a host from old switch to new switch"
 
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
-        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
-        oldSwitch.cmd('sudo arp -d ' + host.IP())
+        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=True )
+        #oldSwitch.cmd('sudo arp -d ' + host.IP())
 
         return host
 

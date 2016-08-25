@@ -19,8 +19,9 @@ class RyuRestClient():
     def addCacheRoute(self, host, cache):
         #We add flows to all APs.
         for APid in self.APSids:
+            self.post(self.ADD_FLOW_URL, self.getArpOutgoingFlow(APid, host, cache))
             for i in range(1, 51):
-                self.post(self.ADD_FLOW_URL, self.answerARPonAPCommand(APid, host, cache, i))
+                self.post(self.ADD_FLOW_URL, self.getArpIncomingFlow(APid, host, cache, i))
 
     def post(self, url, body):
         return requests.post('http://localhost:8080/stats/flowentry/add', 
@@ -52,7 +53,7 @@ class RyuRestClient():
                 {
                     "type": "SET_FIELD",
                     "field": "eth_src",
-                    "value": host.MAC(),
+                    "value": cache.MAC(),
                     "eth_type": 2054,
                     "in_port": inPort
                 },
@@ -86,17 +87,17 @@ class RyuRestClient():
     def getArpOutgoingFlow(self, targetSwitchId, host, cache):
         "Return ofctl command for rewriting ARP target (server ip -> cache ip)"
         outputPort = 1
-        if cache.IP() == '10.0.0.2': #Cache on root switch
-            outputPort = 4
+        if int(cache.IP().split('.')[-1]) == targetSwitchId + 1: #Cache on AP
+            outputPort = 2
 
         return {
             "dpid": targetSwitchId,
-            "idle_timeout": IDLE_TIMEOUT,
-            "hard_timeout": HARD_TIMEOUT,
+            "idle_timeout": self.IDLE_TIMEOUT,
+            "hard_timeout": self.HARD_TIMEOUT,
             "priority": 44444,
             "match":{
                 "arp_spa": host.IP(),
-                "arp_tpa": SERVER_IP,
+                "arp_tpa": self.SERVER_IP,
                 "eth_type": 2054
             },
             "actions":[
@@ -117,19 +118,20 @@ class RyuRestClient():
         "Return ofctl command for rewriting ARP source (cache ip -> server ip)"
         return {
             "dpid": targetSwitchId,
-            "idle_timeout": IDLE_TIMEOUT,
-            "hard_timeout": HARD_TIMEOUT,
+            "idle_timeout": self.IDLE_TIMEOUT,
+            "hard_timeout": self.HARD_TIMEOUT,
             "priority": 44444,
             "match":{
-                "arp_spa": cache.IP(),
+                "arp_spa": self.SERVER_IP,
                 "arp_tpa": host.IP(),
-                "eth_type": 2054
+                "eth_type": 2054,
+                "in_port": 1
             },
             "actions":[
                 {
                     "type": "SET_FIELD",
                     "field": "arp_spa",
-                    "value": SERVER_IP,
+                    "value": self.SERVER_IP,
                     "eth_type": 2054
                 },
                 {
