@@ -23,8 +23,14 @@ class MySwitch():
     def getDepth(self):
         return self.depth
 
+    def getNumOfReq(self):
+        return self.numOfReq
+
     def setNumOfReq(self, numOfReq):
         self.numOfReq = numOfReq
+
+    def getReqDepth(self):
+        return self.reqDepth
 
     def setReqDepth(self, reqDepth):
         self.reqDepth = reqDepth
@@ -84,7 +90,7 @@ class MySwitch():
                 break
         return path
 
-    def mergeRequests(self, numOfReq, reqDepth):
+    def mergeMedian(self, median):
         "Adds number of request and request depths to this node"
-        self.numOfReq += numOfReq
-        self.reqDepth += reqDepth
+        self.numOfReq += median.getNumOfReq()
+        self.reqDepth += median.getReqDepth()
