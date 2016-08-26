@@ -1,5 +1,10 @@
 import csv
+import operator
+
 class CacheManager():
+
+    REVERSE_GREEDY = 'reverse_greedy'
+
     def __init__(self, network):
         self.network = network
         self.maxDepth = 2
@@ -14,9 +19,9 @@ class CacheManager():
 
         if userId == 'All':
             for userId, userMovementPattern in userMovement.iteritems():
-                self.computeMedian(userMovementPattern)
+                self.computeMedian(k, userMovementPattern)
         else:
-            self.computeMedian(userMovement[userId])
+            self.computeMedian(k, userMovement[userId])
 
     def getMovementPattern(self):
         userMovement = {}
@@ -36,7 +41,7 @@ class CacheManager():
         return userMovement
 
 
-    def computeMedian(self, userMovementPattern):
+    def computeMedian(self, userMovementPattern, k=1, strategy=REVERSE_GREEDY):
         print "Computing median"
         #get list of paths for all used access points
         paths = self.getPaths(userMovementPattern.keys())
@@ -44,16 +49,21 @@ class CacheManager():
         #Compute lowest common ancestor
         lca, depth = self.lowestCommonAncestor(paths)
 
-        #Move down the tree towards decreasing cost
-        bestCost = self.computeCost(lca, lca, paths, userMovementPattern)
+        if k == 1:
+            #Move down the tree towards decreasing cost
+            bestCost = self.computeCost(lca, lca, paths, userMovementPattern)
+            bestCost, median = self.getBestCost(lca, lca, bestCost, paths, userMovementPattern, k )
+        elif strategy == self.REVERSE_GREEDY:
+            bestCost, medians = self.reverseGreedy(lca, paths, userMovementPattern, k)
 
-        bestCost, median = self.getBestCost(lca, lca, bestCost, paths, userMovementPattern )
+
         print "Best cost: " +str(bestCost)
         print "S%d is the best location." % median.getId()
         print "Depth: %d" % depth
         print "LCA: S%d" % lca.getId()
 
 
+    d
 
     def getBestCost(self, lca, currentBest, bestCost, paths, userMovementPattern):
         cacheCandidates = currentBest.getChildren()

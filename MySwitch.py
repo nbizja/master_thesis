@@ -10,6 +10,10 @@ class MySwitch():
         self.APName = APName
         self.hosts = []
 
+        self.numOfReq = []
+        self.reqDepth = []
+
+
     def getId(self):
         return self.index
 
@@ -18,6 +22,12 @@ class MySwitch():
 
     def getDepth(self):
         return self.depth
+
+    def setNumOfReq(self, numOfReq):
+        self.numOfReq = numOfReq
+
+    def setReqDepth(self, reqDepth):
+        self.reqDepth = reqDepth
 
     def getAccessPoints(self):
         if self.isAP:
@@ -55,3 +65,26 @@ class MySwitch():
     def setIsAP(self, isAP):
         self.isAP = isAP
 
+
+    #### Algorithm
+    def moveUp(self, path):
+        upperHop = self
+        for hop in path:
+            if self.id == hop.getId():
+                return upperHop
+            upperHop = hop
+
+        return upperHop
+
+
+    def merge(self, path):
+        for i in range(0, len(path)):
+            if len(path[i].getNumOfReq) > 0:
+                path[i].mergeRequests(self.numOfReq, reqDepth)
+                break
+        return path
+
+    def mergeRequests(self, numOfReq, reqDepth):
+        "Adds number of request and request depths to this node"
+        self.numOfReq += numOfReq
+        self.reqDepth += reqDepth
