@@ -39,7 +39,7 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch)#, delay="200ms")
+        net.addLink(host, rootSwitch, delay='1000ms')#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
@@ -107,13 +107,15 @@ class NetworkManager():
         self.hostSwitchMap = {}
         aps = mySwitch.getAccessPoints()
         k = 0
-        for i in range(self.nextHostIndex, self.nextHostIndex + self.numberOfUsers + 1):
-            sw = random.choice(aps)
+        j = 0
+        for i in range(self.nextHostIndex, self.nextHostIndex + len(aps)):
+            apId = aps[j].getId()
             h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%s' % ((hex(i))[-2:]))
-            s = net.get('s%d' % sw.getId())
+            s = net.get('s%d' % apId)
             net.addLink(h, s)
-            self.hostSwitchMap[i] = sw.getId()
-            self.occupyFreePort(sw.getId(), i)
+            self.hostSwitchMap[apId] = i
+            #self.occupyFreePort(sw.getId(), i)
+            j += 1
             k = i
         self.nextHostIndex = k + 1
 
@@ -133,7 +135,7 @@ class NetworkManager():
         cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
-        net = Mininet( controller=None, switch=MobilitySwitch )
+        net = Mininet( controller=None, switch=MobilitySwitch, link=TCLink )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
 
@@ -197,7 +199,7 @@ class NetworkManager():
         cacheStr = ''
         if cacheIp != '':
             cacheStr = '-p http://' + cacheIp + ':8080'
-        return host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/helloworld")# + picture)
+        return host.cmd("curl --connect-timeout 5 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/helloworld")# + picture)
 
     def simulation( self, net, tree ):
         print '*** Simulation started'
@@ -214,26 +216,27 @@ class NetworkManager():
             for req in userRequests:
                 #WARNING: mapping multiple users into one.
 
-                hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
+                #hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
                 #print hostIndex
                 if req['AP'] in self.accessPoints:
-                    hostCurrentlyOn = self.hostSwitchMap[hostIndex]
+                    APIndex = self.accessPoints[req['AP']]
+                    hostIndex = self.hostSwitchMap[APIndex] 
+                    #hostCurrentlyOn = self.hostSwitchMap[hostIndex]
                     host = net.get('h%d' % hostIndex)
 
                     #If we need to move host
-                    APIndex = self.accessPoints[req['AP']]
-                    if hostCurrentlyOn != APIndex:
-                        print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
-                        oldSwitch = net.get('s%d' % hostCurrentlyOn)
-                        newSwitch = net.get('s%d' % APIndex)
-                        self.hostSwitchMap[hostIndex] = APIndex
-                        self.freeOccupiedPort(APIndex, hostIndex)
-                        newPort = self.occupyFreePort(APIndex, hostIndex)
-                        print newPort
-                        host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
-                        CLI(net)
+                    #if hostCurrentlyOn != APIndex:
+                    #    print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
+                        #oldSwitch = net.get('s%d' % hostCurrentlyOn)
+                        #newSwitch = net.get('s%d' % APIndex)
+                        #self.hostSwitchMap[hostIndex] = APIndex
+                        #self.freeOccupiedPort(APIndex, hostIndex)
+                        #newPort = self.occupyFreePort(APIndex, hostIndex)
+                        #print newPort
+                    #    host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
+                    #    CLI(net)
 
-                    print "H%d  %s" % (hostIndex, host.MAC())
+                    #print "H%d  %s" % (hostIndex, host.MAC())
 
                     picture = str(randint(1,78))
                     #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
