@@ -1,3 +1,5 @@
+from SingleMedian import SingleMedian
+from ReverseGreedy import ReverseGreedy
 import csv
 import operator
 
@@ -19,9 +21,37 @@ class CacheManager():
 
         if userId == 'All':
             for userId, userMovementPattern in userMovement.iteritems():
-                self.computeMedian(k, userMovementPattern)
+                self.computeMedian(userMovementPattern, k)
         else:
-            self.computeMedian(k, userMovement[userId])
+            self.computeMedian(userMovement[userId], k)
+
+    def computeMedian(self, userMovementPattern, k=1, strategy=REVERSE_GREEDY):
+        print "Computing median"
+        #get list of paths for all used access points
+        paths = self.getPaths(userMovementPattern)
+
+        #Compute lowest common ancestor
+        singleMedian = SingleMedian()
+
+        lca, depth = singleMedian.lowestCommonAncestor(paths)
+
+        if k == 1:
+            #Move down the tree towards decreasing cost
+            bestCost = singleMedian.computeSingleMedian(lca, lca, paths, userMovementPattern)
+            bestCost, median = singleMedian.getBestCost(lca, lca, bestCost, paths, userMovementPattern)
+            print "S%d is the best location." % median.getId()
+
+        elif strategy == self.REVERSE_GREEDY:
+            greedy = ReverseGreedy()
+            bestCost, medians = greedy.reverseGreedy(lca, paths, userMovementPattern, k)
+            print " Best locations:"
+            print list(map((lambda median: median.getId()), medians))
+
+
+        print "Best cost: " +str(bestCost)
+        
+        print "Depth: %d" % depth
+        print "LCA: S%d" % lca.getId()
 
     def getMovementPattern(self):
         userMovement = {}
@@ -41,110 +71,30 @@ class CacheManager():
         return userMovement
 
 
-    def computeMedian(self, userMovementPattern, k=1, strategy=REVERSE_GREEDY):
-        print "Computing median"
-        #get list of paths for all used access points
-        paths = self.getPaths(userMovementPattern.keys())
-
-        #Compute lowest common ancestor
-        lca, depth = self.lowestCommonAncestor(paths)
-
-        if k == 1:
-            #Move down the tree towards decreasing cost
-            bestCost = self.computeCost(lca, lca, paths, userMovementPattern)
-            bestCost, median = self.getBestCost(lca, lca, bestCost, paths, userMovementPattern, k )
-        elif strategy == self.REVERSE_GREEDY:
-            bestCost, medians = self.reverseGreedy(lca, paths, userMovementPattern, k)
-
-
-        print "Best cost: " +str(bestCost)
-        print "S%d is the best location." % median.getId()
-        print "Depth: %d" % depth
-        print "LCA: S%d" % lca.getId()
-
-
-    d
-
-    def getBestCost(self, lca, currentBest, bestCost, paths, userMovementPattern):
-        cacheCandidates = currentBest.getChildren()
-        print "First best cost %d" % bestCost
-        for cacheCandidate in cacheCandidates:
-            cost = self.computeCost(lca, cacheCandidate, paths, userMovementPattern)
-            print "Cache candidate %d has cost of %d" % (cacheCandidate.getId(), cost)
-            if cost < bestCost: #Minimiying the cost
-                bestCost = cost
-                median = cacheCandidate
-                return self.getBestCost(lca, cacheCandidate, bestCost, paths, userMovementPattern)
-                
-        return bestCost, currentBest
-
-
-    def getPaths(self, accessPoints):
+    def getPaths(self, movementPattern):
         print "Getting paths"
+        accessPoints = movementPattern.keys()
         paths = []
         for ap in accessPoints:
             print "Getting path for " + ap
-            path = self.findPathToAP(self.network, ap)
+            path = self.findPathToAP(self.network, ap, movementPattern[ap])
             if len(path):
                 paths.append(path)
 
         return paths
 
-    def findPathToAP(self, mySwitch, APName):
-
+    def findPathToAP(self, mySwitch, APName, numOfReq):
         if mySwitch.APName == APName:
+            mySwitch.setNumOfReq([numOfReq])
+            mySwitch.setReqDepth([mySwitch.getDepth()])
+
             return [mySwitch]
         if mySwitch.isAP:
             return []
 
         for child in mySwitch.getChildren():
-            childPath = self.findPathToAP(child, APName)
+            childPath = self.findPathToAP(child, APName, numOfReq)
             if len(childPath) > 0:
                 return [mySwitch] + childPath
         
         return []
-
-    def computeCost(self, lca, candidate, paths, movementPattern):
-        #lca is definitely in one of the paths
-        #paths are oriented from lca to leaf
-        totalCost = 0
-        pathNum = 0
-        for path in paths:
-            pathCost = 0
-            candidateOnPath = False
-            APName = path[ -1 ].getAPName()
-            numOfRequests = movementPattern[APName]
-            for hop in reversed(path):
-                if candidate.getId() != hop.getId():
-                    pathCost += self.costFunction(numOfRequests, hop.getDepth()) #Cost function
-                else:
-                    candidateOnPath = True
-                    break
-            
-            if not candidateOnPath:
-                print "Candidate %d not on path - depth %d" % (candidate.getId(), candidate.getDepth() - lca.getDepth()) 
-                pathCost += self.costFunction(numOfRequests, candidate.getDepth() - lca.getDepth())
-
-            print "Path %d has cost %d" % (pathNum, pathCost)
-            totalCost += pathCost
-            pathNum += 1
-
-        return totalCost
-
-    def costFunction(self, numOfRequests, depth):
-        return float(numOfRequests) / float(depth + 1)
-
-    def lowestCommonAncestor(self, paths):
-        print "Computing lowest common ancestor"
-        print paths
-        if len(paths) == 1:
-            return paths[0][-1], len(paths[0]) - 1
-
-        for depth in range(0, len(paths[0])):
-            lcaCandidate = paths[0][depth]
-            print "Candidate id: %d" % lcaCandidate.getId()
-            for path in paths:
-                if path[depth].getId() != lcaCandidate.getId():
-                    return paths[0][depth - 1], depth - 1 #return previous candidate
-
-        return paths[0][0], 0

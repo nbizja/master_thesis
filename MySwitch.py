@@ -94,3 +94,5 @@ class MySwitch():
         "Adds number of request and request depths to this node"
         self.numOfReq += median.getNumOfReq()
         self.reqDepth += median.getReqDepth()
+
+    
