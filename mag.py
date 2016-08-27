@@ -5,6 +5,7 @@ from mininet.log import setLogLevel
 from mininet.node import OVSSwitch, RemoteController
 from mininet.topolib import TreeNet
 from mininet.net import Mininet
+from mininet.link import TCLink
 from mininet.log import output, warn
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from os import curdir, sep
@@ -38,9 +39,9 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch)
+        net.addLink(host, rootSwitch)#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
-        self.gatewayMAC = host.MAC(heth)
+        self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
         host.cmd('python simple_server.py &')
         
@@ -132,7 +133,7 @@ class NetworkManager():
         cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
 
     def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
-        net = Mininet( controller=None, switch=MobilitySwitch, cleanup=True )
+        net = Mininet( controller=None, switch=MobilitySwitch )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
 
@@ -176,12 +177,15 @@ class NetworkManager():
                 self.debug(c, depth + 1)
 
     def setupStaticFlows(self, net):
-        for i in range(2, self.nextSwitchIndex):
-            net.get('s%d' % i).cmd('sudo arp -i s%d-eth1 -s %s %s ' % (i, self.gatewayIP, self.gatewayMAC))
-            net.get('s%d' % i).cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=20,dl_type=0x800,nw_dst=%s,action=output:1' % (i, self.gatewayIP))
-        print net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=1,nw_dst=%s,action=output:3' % self.gatewayIP)
-        print net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=2,nw_dst=%s,action=output:3' % self.gatewayIP)
+        #for i in range(2, self.nextSwitchIndex):
+        #    net.get('s%d' % i).cmd('sudo arp -i s%d-eth1 -s %s %s ' % (i, self.gatewayIP, self.gatewayMAC))
+        #    net.get('s%d' % i).cmd('ovs-ofctl add-flow s%d priority=100,idle_timeout=20,dl_type=0x800,nw_dst=%s,action=output:1' % (i, self.gatewayIP))
+        
+        #net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=1,nw_dst=%s,action=output:3' % self.gatewayIP)
+        #net.get('s1').cmd('ovs-ofctl add-flow s1 priority=100,idle_timeout=20,in_port=2,nw_dst=%s,action=output:3' % self.gatewayIP)
 
+        for j in range(2, self.nextHostIndex):
+            net.get('h%d' % j).cmd('sudo arp -i h%d-eth0 -s %s %s' % (j, self.gatewayIP, self.gatewayMAC))
 
     def cacheAllTheThings(self, tree):
         apsIds = list(map((lambda ap: ap.getId()), tree.getAccessPoints()))
@@ -189,13 +193,16 @@ class NetworkManager():
         ryuClient.addCacheRoute(net.get('h70'), net.get('h3'))
         print "Cached all the things"
 
+    def makeRequest(self, host, item, cacheIp=''):
+        cacheStr = ''
+        if cacheIp != '':
+            cacheStr = '-p http://' + cacheIp + ':8080'
+        return host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/helloworld")# + picture)
 
     def simulation( self, net, tree ):
         print '*** Simulation started'
 
-        CLI(net)
-
-        self.cacheAllTheThings(tree)
+        #self.cacheAllTheThings(tree)
         limit = 50 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
@@ -224,12 +231,13 @@ class NetworkManager():
                         newPort = self.occupyFreePort(APIndex, hostIndex)
                         print newPort
                         host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
+                        CLI(net)
 
                     print "H%d  %s" % (hostIndex, host.MAC())
 
                     picture = str(randint(1,78))
-                    result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
-
+                    #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
+                    result = self.makeRequest(host, picture)
                     code, delay = result.split(',')
 
                     if int(code) != 200:
@@ -252,7 +260,7 @@ class NetworkManager():
         "Move a host from old switch to new switch"
 
         hintf, sintf = host.connectionsTo( oldSwitch )[ 0 ]
-        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=True )
+        oldSwitch.moveIntf( sintf, newSwitch, port=newPort, rename=False )
         #oldSwitch.cmd('sudo arp -d ' + host.IP())
 
         return host
