@@ -16,6 +16,7 @@ from MobilitySwitch import MobilitySwitch
 from MySwitch import MySwitch
 from random import randint
 from RyuRestClient import RyuRestClient
+import numpy as np
 import csv
 import random
 import requests
@@ -39,7 +40,7 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch, delay='1000ms')#, delay="200ms")
+        net.addLink(host, rootSwitch, delay='50ms')#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
@@ -205,9 +206,12 @@ class NetworkManager():
         print '*** Simulation started'
 
         #self.cacheAllTheThings(tree)
-        limit = 50 
+        limit = 100 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
+
+        paretoDist = np.random.pareto(1, 10000) + 1
+        pictures = np.around(np.array(paretoDist[paretoDist < 78][:(limit + 1)]), 0)
 
         with open('/data/movement.csv', 'rb') as csvfile:
             userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
@@ -237,8 +241,9 @@ class NetworkManager():
                     #    CLI(net)
 
                     #print "H%d  %s" % (hostIndex, host.MAC())
-
-                    picture = str(randint(1,78))
+                    picture = pictures[requestCount]
+                    print "Picture %d" % picture
+                    #picture = str(randint(1,78))
                     #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
                     result = self.makeRequest(host, picture)
                     code, delay = result.split(',')
@@ -269,6 +274,7 @@ class NetworkManager():
         return host
 
 if __name__ == '__main__':
+
     setLogLevel( 'info' )
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
     networkManager = NetworkManager()
