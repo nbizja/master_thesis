@@ -22,6 +22,7 @@ import random
 import requests
 import json
 import time
+import subprocess
 
 class NetworkManager():
 
@@ -30,7 +31,7 @@ class NetworkManager():
         self.accessPoints = {}
         self.apFreePort = {}
         self.gatewayIP = ''
-        self.numberOfUsers = 50
+        self.numberOfUsers = 100
 
         random.seed( 323 )
         np.random.seed( 323 )
@@ -41,7 +42,7 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch)#delay='50ms')#, delay="200ms")
+        net.addLink(host, rootSwitch, delay='100ms')#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
@@ -160,7 +161,7 @@ class NetworkManager():
         self.createServer(net)
 
         print '*** Adding cache servers\n'
-        #self.addCacheServers(net)
+        self.addCacheServers(net)
 
         print '*** Adding hosts from h%d to h%d' % (self.nextHostIndex, self.nextHostIndex + self.numberOfUsers)
         self.firstHostIndex = self.nextHostIndex
@@ -200,14 +201,20 @@ class NetworkManager():
         ryuClient.addCacheRoute(net.get('h70'), net.get('h3'))
         print "Cached all the things"
 
-    def makeRequest(self, host, item, cacheIp=''):
+    def makeRequest(self, host, item, cacheId=0):
         cacheStr = ''
-        if cacheIp != '':
-            cacheStr = '-p http://' + cacheIp + ':8080'
-        return host.cmd("curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item))# + picture)
+        if cacheId != 0:
+            cacheStr = '-x http://10.0.0.' + str(cacheId) + ':8080'
 
-    def simulation( self, net, tree, limit ):
+        cmd = "curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
+        return host.cmd(cmd)# + picture)
+
+    def simulation( self, net, tree, limit, expName ):
         print '*** Simulation started'
+        #bwmTxt = 's1'
+        #for i in range(2, self.nextSwitchIndex):
+        #    bwmTxt = ',s' + str(i)
+        #subprocess.call('bwm-ng --output csv --unit bytes -T sum -F /home/ubuntu/mag/experiments/'+expName+'.csv --interfaces %%lo,eth0,docker0,ovs-system,'+bwmTxt+' --sumhidden 0 --daemon 1')
 
         #self.cacheAllTheThings(tree)
         requestCount = 0
@@ -248,7 +255,8 @@ class NetworkManager():
                     print "Picture %d" % picture
                     #picture = str(randint(1,78))
                     #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
-                    result = self.makeRequest(host, picture)
+                 
+                    result = self.makeRequest(host, picture, cacheId = (APIndex + 1) ) #caching on the edge
                     code, delay = result.split(',')
 
                     if int(code) != 200:
@@ -276,6 +284,8 @@ class NetworkManager():
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
+    expName = 1#raw_input("Enter experiment name: ")
+
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
     networkManager = NetworkManager()
     buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
@@ -286,7 +296,8 @@ if __name__ == '__main__':
     print '*** Getting requests data'
     #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     #movementParser.getMovementInfo()
-    networkManager.simulation(net, tree, 1000)
+
+    networkManager.simulation(net, tree, 1000, expName)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts

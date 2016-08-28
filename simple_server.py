@@ -17,12 +17,12 @@ class myHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         #logging.info(self.path)
         try:
-            if self.reqCount == 820:
+            if self.reqCount % 800 == 0:
                 server.socket.close()
                 server.serve_forever()
             self.reqCount += 1
         except AttributeError:
-            self.reqCount = 0
+            self.reqCount = 1
 
 
         if self.path == "/helloworld":
