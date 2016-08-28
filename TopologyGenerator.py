@@ -28,12 +28,12 @@ class TopologyGenerator():
             for row in reader:
                 apPosition = row['APname'].find('AP')
                 buildingName = row['APname'][0:apPosition]
-                if buildingName in subset:
-                    if buildingName in apsByBuildings:
-                        apsByBuildings[buildingName].append(row)
-                    else:
-                        buildingNames.append(buildingName)
-                        apsByBuildings[buildingName] = [row]
+                #if buildingName in subset:
+                if buildingName in apsByBuildings:
+                    apsByBuildings[buildingName].append(row)
+                else:
+                    buildingNames.append(buildingName)
+                    apsByBuildings[buildingName] = [row]
 
 
 

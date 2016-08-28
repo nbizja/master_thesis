@@ -16,7 +16,15 @@ class myHandler(BaseHTTPRequestHandler):
     #Handler for the GET requests
     def do_GET(self):
         #logging.info(self.path)
-        
+        try:
+            if self.reqCount == 820:
+                server.socket.close()
+                server.serve_forever()
+            self.reqCount += 1
+        except AttributeError:
+            self.reqCount = 0
+
+
         if self.path == "/helloworld":
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -25,7 +33,7 @@ class myHandler(BaseHTTPRequestHandler):
             return
 
         #Open the static file requested and send it
-        f = open('/data/pictures/' + self.path + '.jpg') 
+        f = open('/data/pictures/img' + self.path.replace('/','') + '.jpg') 
         self.send_response(200)
         self.send_header('Cache-Control', 'public, max-age=31536000')
         self.send_header('ETag', '696897' + self.path.zfill(2) + '96a7c876b7e')

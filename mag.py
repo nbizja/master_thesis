@@ -32,7 +32,8 @@ class NetworkManager():
         self.gatewayIP = ''
         self.numberOfUsers = 50
 
-        random.seed( 10 )
+        random.seed( 323 )
+        np.random.seed( 323 )
 
     def createServer( self, net ):
         host = net.addHost('h' + str(self.nextHostIndex), mac='00:00:00:00:00:01')
@@ -40,7 +41,7 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch, delay='50ms')#, delay="200ms")
+        net.addLink(host, rootSwitch)#delay='50ms')#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
@@ -65,7 +66,8 @@ class NetworkManager():
             self.apFreePort[self.nextSwitchIndex] = freePorts
             self.nextSwitchIndex += 1
             print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
-            break
+            if self.nextSwitchIndex >= self.maxAps:
+                break
 
         self.currentBuilding += 1
         return accessPoints
@@ -78,7 +80,7 @@ class NetworkManager():
 
         self.nextSwitchIndex += 1            
         
-        if depth >= self.maxDepth:
+        if depth >= self.maxDepth or self.nextSwitchIndex >= self.maxAps:
             mySwitch.setChildren(self.addAccessPoints(net, mySwitch, depth, self.buildingNames[self.currentBuilding]))
             return mySwitch
         else:
@@ -123,6 +125,7 @@ class NetworkManager():
 
     def addCacheServers( self, net):
         for i in range(1, self.nextSwitchIndex):
+            print "Adding cache server to s%d" % i
             s = net.get('s%d' % i)
             cache = net.addHost('h%d' % (i + 1), ip='10.0.0.%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
             net.addLink(cache, s)
@@ -145,18 +148,19 @@ class NetworkManager():
         self.currentBuilding = 0
         self.buildingNames = buildingNames
         self.apsByBuildings = apsByBuildings
-        self.maxDepth = 3
+        self.maxDepth = 4
+        self.maxAps = size
 
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
-        tree = self.createTree(net, 2, 0)
+        tree = self.createTree(net, 5, 0)
 
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
 
         print '*** Adding cache servers\n'
-        self.addCacheServers(net)
+        #self.addCacheServers(net)
 
         print '*** Adding hosts from h%d to h%d' % (self.nextHostIndex, self.nextHostIndex + self.numberOfUsers)
         self.firstHostIndex = self.nextHostIndex
@@ -200,18 +204,17 @@ class NetworkManager():
         cacheStr = ''
         if cacheIp != '':
             cacheStr = '-p http://' + cacheIp + ':8080'
-        return host.cmd("curl --connect-timeout 5 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/helloworld")# + picture)
+        return host.cmd("curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item))# + picture)
 
-    def simulation( self, net, tree ):
+    def simulation( self, net, tree, limit ):
         print '*** Simulation started'
 
         #self.cacheAllTheThings(tree)
-        limit = 100 
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
 
-        paretoDist = np.random.pareto(1, 10000) + 1
-        pictures = np.around(np.array(paretoDist[paretoDist < 78][:(limit + 1)]), 0)
+        paretoDist = np.random.pareto(0.6, limit * 10) + 1
+        pictures = np.around(np.array(paretoDist[paretoDist < 4000][:(limit + 1)]), 0).astype(int)
 
         with open('/data/movement.csv', 'rb') as csvfile:
             userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
@@ -240,7 +243,7 @@ class NetworkManager():
                     #    host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
                     #    CLI(net)
 
-                    #print "H%d  %s" % (hostIndex, host.MAC())
+                    #print requestCount
                     picture = pictures[requestCount]
                     print "Picture %d" % picture
                     #picture = str(randint(1,78))
@@ -253,16 +256,14 @@ class NetworkManager():
                     else:
                         totalDelay += float(delay[2:])
    
-                    requestCount = requestCount + 1
+                    requestCount += 1
                     if requestCount > 10 and requestCount == failedRequests:
                         break
 
                     if requestCount > limit:
                         break
-            print "Total requests: %d  Failed requests: %d "  % (requestCount, failedRequests)
+            print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
             print "Delay sum: " + str(totalDelay)
-
-        print requestCount
 
     def moveHost( self, net, host, hostIndex, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"
@@ -274,19 +275,18 @@ class NetworkManager():
         return host
 
 if __name__ == '__main__':
-
     setLogLevel( 'info' )
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
     networkManager = NetworkManager()
     buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
     linkage = tp.computeLinkage(printDendogram = False)
     clusters = tp.computeClusters()
-    net, tree = networkManager.networkFromCLusters(clusters, linkage, len(buildings), apsByBuildings, buildingNames)
+    net, tree = networkManager.networkFromCLusters(clusters, linkage, 100, apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
     #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     #movementParser.getMovementInfo()
-    networkManager.simulation(net, tree)
+    networkManager.simulation(net, tree, 1000)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
