@@ -31,7 +31,7 @@ class NetworkManager():
         self.accessPoints = {}
         self.apFreePort = {}
         self.gatewayIP = ''
-        self.numberOfUsers = 100
+        self.numberOfUsers = 50
 
         random.seed( 323 )
         np.random.seed( 323 )
@@ -42,7 +42,7 @@ class NetworkManager():
         print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
-        net.addLink(host, rootSwitch, delay='100ms')#, delay="200ms")
+        net.addLink(host, rootSwitch, delay='50ms')#, delay="200ms")
         heth, seth = host.connectionsTo( rootSwitch )[ 0 ]
         self.gatewayMAC = '00:00:00:00:00:01'
         self.gatewayID = self.nextHostIndex
@@ -119,6 +119,8 @@ class NetworkManager():
             net.addLink(h, s)
             self.hostSwitchMap[apId] = i
             #self.occupyFreePort(sw.getId(), i)
+            #h.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % i)
+
             j += 1
             k = i
         self.nextHostIndex = k + 1
@@ -129,8 +131,10 @@ class NetworkManager():
             print "Adding cache server to s%d" % i
             s = net.get('s%d' % i)
             cache = net.addHost('h%d' % (i + 1), ip='10.0.0.%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
+            
             net.addLink(cache, s)
             self.startSquid(cache, i + 1)
+            #cache.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % (i+1))
         
         self.nextHostIndex = self.nextSwitchIndex + 1
 
@@ -206,7 +210,7 @@ class NetworkManager():
         if cacheId != 0:
             cacheStr = '-x http://10.0.0.' + str(cacheId) + ':8080'
 
-        cmd = "curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
+        cmd = "curl --connect-timeout 3 -s -o /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
         return host.cmd(cmd)# + picture)
 
     def simulation( self, net, tree, limit, expName ):
@@ -252,7 +256,7 @@ class NetworkManager():
 
                     #print requestCount
                     picture = pictures[requestCount]
-                    print "Picture %d" % picture
+                    print str(requestCount) + ". Picture %d" % picture
                     #picture = str(randint(1,78))
                     #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
                  
@@ -291,13 +295,13 @@ if __name__ == '__main__':
     buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
     linkage = tp.computeLinkage(printDendogram = False)
     clusters = tp.computeClusters()
-    net, tree = networkManager.networkFromCLusters(clusters, linkage, 100, apsByBuildings, buildingNames)
+    net, tree = networkManager.networkFromCLusters(clusters, linkage, 60, apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
     #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     #movementParser.getMovementInfo()
 
-    networkManager.simulation(net, tree, 1000, expName)
+    networkManager.simulation(net, tree, 500, expName)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts

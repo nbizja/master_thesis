@@ -16,8 +16,10 @@ class myHandler(BaseHTTPRequestHandler):
     #Handler for the GET requests
     def do_GET(self):
         #logging.info(self.path)
+        print "Request for " + self.path
         try:
-            if self.reqCount % 800 == 0:
+            if self.reqCount % 400 == 0:
+                print "Restarting server"
                 server.socket.close()
                 server.serve_forever()
             self.reqCount += 1
@@ -43,6 +45,8 @@ class myHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(f.read())
         f.close()
+        print "Request for " + self.path + " completed!"
+
         return
 
         try:
