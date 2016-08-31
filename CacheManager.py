@@ -6,61 +6,71 @@ import operator
 class CacheManager():
 
     REVERSE_GREEDY = 'reverse_greedy'
+    ALL_USERS = 'All'
 
     def __init__(self, network):
         self.network = network
         self.maxDepth = 2
 
-    def computeKMedianCaches(self, k=1, userId='All', userMovement={}):
-        print "Computing k-median cache positions"
+    def computeKMedianCaches(self, k=1, userId=ALL_USERS, userMovement={}):
+        #print "Computing k-median cache positions"
 
         fieldnames = ['timestamp', 'hostIndex', 'AP']
 
         if not userMovement:
-            userMovement = self.getMovementPattern
+            userMovement = self.getMovementPattern()
 
-        if userId == 'All':
+        if userId == self.ALL_USERS:
+            medians = {}
             for userId, userMovementPattern in userMovement.iteritems():
-                self.computeMedian(userMovementPattern, k)
+                if len(userMovementPattern) > 0:
+                    medians[(userId % 50) + 1] = self.computeMedian(userMovementPattern, k)
+
+            return medians
         else:
-            self.computeMedian(userMovement[userId], k)
+            return {userId: self.computeMedian(userMovement[userId], k)}
 
     def computeMedian(self, userMovementPattern, k=1, strategy=REVERSE_GREEDY):
-        print "Computing median"
+        #print "Computing median"
         #get list of paths for all used access points
         paths = self.getPaths(userMovementPattern)
-
+        if len(paths) == 0:
+            return 2
         #Compute lowest common ancestor
         singleMedian = SingleMedian()
 
         lca, depth = singleMedian.lowestCommonAncestor(paths)
+        #print "LCA: S%d" % lca.getId()
 
         if k == 1:
             #Move down the tree towards decreasing cost
             bestCost = singleMedian.computeSingleMedian(lca, lca, paths, userMovementPattern)
             bestCost, median = singleMedian.getBestCost(lca, lca, bestCost, paths, userMovementPattern)
-            print "S%d is the best location." % median.getId()
+            #print "S%d is the best location." % median.getId()
+
+            return median.getId()
 
         elif strategy == self.REVERSE_GREEDY:
             greedy = ReverseGreedy()
             bestCost, medians = greedy.reverseGreedy(lca, paths, userMovementPattern, k)
-            print " Best locations:"
-            print list(map((lambda median: median.getId()), medians))
+            bestLocations = list(map((lambda median: median.getId()), medians))
+
+            #print " Best locations:"
+            #print bestLocations
+
+            return bestLocations
 
 
-        print "Best cost: " +str(bestCost)
-        
-        print "Depth: %d" % depth
-        print "LCA: S%d" % lca.getId()
 
     def getMovementPattern(self):
         userMovement = {}
+        fieldnames = ['timestamp', 'hostIndex', 'AP']
+
         with open('/data/movement.csv', 'rb') as csvfile:
             movementData = csv.DictReader(csvfile, fieldnames, delimiter=',')
             for row in movementData:
                 hi = int(row['hostIndex'])
-                if hi < 30:
-                    hi = 1
+
                 if hi not in userMovement:
                     userMovement[hi] = {row['AP']: 1}
                 else:
@@ -68,15 +78,17 @@ class CacheManager():
                         userMovement[hi][row['AP']] = 1
                     else:
                         userMovement[hi][row['AP']] +=1
+        print userMovement[24]
+        
         return userMovement
 
 
     def getPaths(self, movementPattern):
-        print "Getting paths"
+        #print "Getting paths"
         accessPoints = movementPattern.keys()
         paths = []
         for ap in accessPoints:
-            print "Getting path for " + ap
+            #print "Getting path for " + ap
             path = self.findPathToAP(self.network, ap, movementPattern[ap])
             if len(path):
                 paths.append(path)

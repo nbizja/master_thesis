@@ -1,0 +1,33 @@
+eksperiment_results.txt
+
+
+
+2.)
+Total requests: 500  Failed requests: 1 
+Delay sum: 33806.0
+
+
+3.)
+
+Core cache: 32 8 64
+Other Caches: 4 4 32
+Total requests: 500  Failed requests: 0 
+Delay sum: 65490.0
+
+
+4.) my cache
+
+Total requests: 2000  Failed requests: 0 
+Delay sum: 277924.0
+
+
+5.) root cache
+Total requests: 2000  Failed requests: 0 
+Delay sum: 166756.0
+
+6.) root cache
+Total requests: 2000  Failed requests: 0 
+Delay sum: 117717.0
+
+Total requests: 2000  Failed requests: 0 
+Delay sum: 172645.0

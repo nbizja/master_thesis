@@ -11,6 +11,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from os import curdir, sep
 from TopologyGenerator import TopologyGenerator
 from MovementDataParser import MovementDataParser
+from CacheManager import CacheManager
 from netaddr import IPAddress
 from MobilitySwitch import MobilitySwitch
 from MySwitch import MySwitch
@@ -67,6 +68,7 @@ class NetworkManager():
             self.apFreePort[self.nextSwitchIndex] = freePorts
             self.nextSwitchIndex += 1
             print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
+            break
             if self.nextSwitchIndex >= self.maxAps:
                 break
 
@@ -109,45 +111,52 @@ class NetworkManager():
 
     def addHosts( self, net, mySwitch ):
         self.hostSwitchMap = {}
-        aps = mySwitch.getAccessPoints()
-        k = 0
-        j = 0
-        for i in range(self.nextHostIndex, self.nextHostIndex + len(aps)):
-            apId = aps[j].getId()
-            h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%s' % ((hex(i))[-2:]))
-            s = net.get('s%d' % apId)
-            net.addLink(h, s)
-            self.hostSwitchMap[apId] = i
-            #self.occupyFreePort(sw.getId(), i)
-            #h.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % i)
+        i = self.nextHostIndex
 
-            j += 1
-            k = i
-        self.nextHostIndex = k + 1
+        for ap in self.accessPoints.values():
+            h = net.addHost('h%d' % i, ip='10.0.%d.1' % i, mac='00:00:00:00:00:%s' % ((hex(i))[-2:]))
+            s = net.get('s%d' % ap)
+            net.addLink(h, s)
+            self.hostSwitchMap[ap] = i
+            i += 1
+
+        self.nextHostIndex = i
 
 
     def addCacheServers( self, net):
+        #s = net.get('s1')
+        #cache = net.addHost('h2', ip='10.0.0.2', mac='00:00:00:00:02:00')
+        #net.addLink(cache, s)
+        #self.startSquid(cache, 2)
+
+        #self.nextHostIndex = 3
+
+        #i = 2
+        self.cacheOnAp = {}
+        #for ap in self.accessPoints.values():
         for i in range(1, self.nextSwitchIndex):
             print "Adding cache server to s%d" % i
             s = net.get('s%d' % i)
             cache = net.addHost('h%d' % (i + 1), ip='10.0.0.%d' % (i + 1), mac='00:00:00:00:%s:00' % ((hex(i + 1))[-2:]))
             
             net.addLink(cache, s)
+            self.cacheOnAp[i] = i + 1
             self.startSquid(cache, i + 1)
             #cache.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % (i+1))
-        
-        self.nextHostIndex = self.nextSwitchIndex + 1
+            self.nextHostIndex += 1
+           
+        #self.nextHostIndex = self.nextSwitchIndex + 1
 
     def startSquid( self, cache, cacheId):
         cache.cmd('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128 2> /home/ubuntu/mag/errors.txt')
         cache.cmd('sudo iptables -t nat -A POSTROUTING -j MASQUERADE 2> /home/ubuntu/mag/errors.txt')
-        cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId))
+        cache.cmd('/home/ubuntu/mag/squid/run-squid.sh ' + str(cacheId) + ' ' + self.experiment)
 
-    def networkFromCLusters( self, clusters, linkage, size, apsByBuildings, buildingNames ):
-        net = Mininet( controller=None, switch=MobilitySwitch, link=TCLink )
+    def networkFromCLusters( self, expName, clusters, linkage, size, apsByBuildings, buildingNames ):
+        net = Mininet( controller=None, switch=MobilitySwitch, link=TCLink, autoStaticArp = True )
         ryu_controller = net.addController( 'c0', controller=RemoteController, ip="0.0.0.0", port=6633)
         #Controller is from http://sdnhub.org/releases/sdn-starter-kit-ryu/
-
+        self.experiment = expName
         self.nextHostIndex = 1
         self.nextSwitchIndex = 1
         self.currentBuilding = 0
@@ -210,10 +219,11 @@ class NetworkManager():
         if cacheId != 0:
             cacheStr = '-x http://10.0.0.' + str(cacheId) + ':8080'
 
-        cmd = "curl --connect-timeout 3 -s -o /dev/null -w '%{http_code},%{time_total}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
-        return host.cmd(cmd)# + picture)
+        cmd = "curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_starttransfer}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
 
-    def simulation( self, net, tree, limit, expName ):
+        return host.cmd(cmd)
+
+    def simulation( self, net, tree, limit ):
         print '*** Simulation started'
         #bwmTxt = 's1'
         #for i in range(2, self.nextSwitchIndex):
@@ -221,16 +231,30 @@ class NetworkManager():
         #subprocess.call('bwm-ng --output csv --unit bytes -T sum -F /home/ubuntu/mag/experiments/'+expName+'.csv --interfaces %%lo,eth0,docker0,ovs-system,'+bwmTxt+' --sumhidden 0 --daemon 1')
 
         #self.cacheAllTheThings(tree)
+        cacheManager = CacheManager(tree)
+
         requestCount = 0
         fieldnames = ['timestamp', 'hostIndex', 'AP']
 
-        paretoDist = np.random.pareto(0.6, limit * 10) + 1
-        pictures = np.around(np.array(paretoDist[paretoDist < 4000][:(limit + 1)]), 0).astype(int)
+        content = range(1, 4001)
+
+        users = range(1,51)
+        userContent = []
+        for u in users:
+            userContent.append(random.sample(range(1, 4001), 200))
+
+        paretoDist = np.random.pareto(0.8, limit * 10) + 1
+        contentChoice = np.around(np.array(paretoDist[paretoDist < 200][:(limit + 1)]), 0).astype(int)
 
         with open('/data/movement.csv', 'rb') as csvfile:
             userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
             failedRequests = 0
+
+            medians = cacheManager.computeKMedianCaches(k=1, userId=CacheManager.ALL_USERS)
+            CLI(net)
+
+            #print cacheIds.keys()
             for req in userRequests:
                 #WARNING: mapping multiple users into one.
 
@@ -238,30 +262,19 @@ class NetworkManager():
                 #print hostIndex
                 if req['AP'] in self.accessPoints:
                     APIndex = self.accessPoints[req['AP']]
-                    hostIndex = self.hostSwitchMap[APIndex] 
-                    #hostCurrentlyOn = self.hostSwitchMap[hostIndex]
-                    host = net.get('h%d' % hostIndex)
 
-                    #If we need to move host
-                    #if hostCurrentlyOn != APIndex:
-                    #    print "h%d is moving from s%d to s%d" % (hostIndex, hostCurrentlyOn, APIndex)
-                        #oldSwitch = net.get('s%d' % hostCurrentlyOn)
-                        #newSwitch = net.get('s%d' % APIndex)
-                        #self.hostSwitchMap[hostIndex] = APIndex
-                        #self.freeOccupiedPort(APIndex, hostIndex)
-                        #newPort = self.occupyFreePort(APIndex, hostIndex)
-                        #print newPort
-                    #    host = self.moveHost(net, host, hostIndex, oldSwitch, newSwitch, newPort=newPort )
-                    #    CLI(net)
+                    host = net.get('h%d' % self.hostSwitchMap[APIndex])
 
-                    #print requestCount
-                    picture = pictures[requestCount]
-                    print str(requestCount) + ". Picture %d" % picture
-                    #picture = str(randint(1,78))
-                    #result = host.cmd("curl --connect-timeout 2 -so /dev/null -w '%{http_code},%{time_total}' http://" + self.gatewayIP + "/helloworld")# + picture)
-                 
-                    result = self.makeRequest(host, picture, cacheId = (APIndex + 1) ) #caching on the edge
-                    code, delay = result.split(',')
+                    hi = (int(req['hostIndex']) % 50) + 1
+                    cacheId = self.cacheOnAp[int(medians[hi])]
+                    picture = userContent[hi - 1][contentChoice[requestCount]]
+
+                    print str(requestCount) + "H%d requests img%d via h%d" % (hi, picture, cacheId)
+               
+                    result = self.makeRequest(host, picture, cacheId = 2 ) #caching on the edge
+                    code = result[0:3]
+                    delay = result[4:9]
+                    print "Delay " + str(delay)
 
                     if int(code) != 200:
                         failedRequests += 1
@@ -288,20 +301,20 @@ class NetworkManager():
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
-    expName = 1#raw_input("Enter experiment name: ")
+    expName = raw_input("Enter experiment name: ")
 
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
     networkManager = NetworkManager()
     buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
     linkage = tp.computeLinkage(printDendogram = False)
     clusters = tp.computeClusters()
-    net, tree = networkManager.networkFromCLusters(clusters, linkage, 60, apsByBuildings, buildingNames)
+    net, tree = networkManager.networkFromCLusters(expName, clusters, linkage, 30, apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
     #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
     #movementParser.getMovementInfo()
 
-    networkManager.simulation(net, tree, 500, expName)
+    networkManager.simulation(net, tree, 2000)
     CLI( net )
     net.stop()
     #createNetwork(4,2) #2^4 hosts
