@@ -1,3 +1,4 @@
+import math
 
 class SingleMedian():
 
@@ -42,7 +43,7 @@ class SingleMedian():
         return totalCost
 
     def costFunction(self, numOfRequests, depth):
-        return float(numOfRequests) / float(depth + 1)
+        return float(numOfRequests) / float(depth + 1) #math.pow(numOfRequests, -1 * (depth + 1))
 
     def lowestCommonAncestor(self, paths):
         #print "Computing lowest common ancestor"

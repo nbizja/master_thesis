@@ -1,33 +1,17 @@
-eksperiment_results.txt
+CACHE: 64 16 32
 
+h24_700_root_pow_50 
+Total requests: 700  Failed requests: 0 
+Delay sum: 15987.0
 
+h24_700_mycache_pow_50
+Total requests: 700  Failed requests: 0 
+Delay sum: 15996.0
 
-2.)
-Total requests: 500  Failed requests: 1 
-Delay sum: 33806.0
+h24_70_mycache_div_50
+Total requests: 700  Failed requests: 0 
+Delay sum: 15401.0
 
-
-3.)
-
-Core cache: 32 8 64
-Other Caches: 4 4 32
-Total requests: 500  Failed requests: 0 
-Delay sum: 65490.0
-
-
-4.) my cache
-
-Total requests: 2000  Failed requests: 0 
-Delay sum: 277924.0
-
-
-5.) root cache
-Total requests: 2000  Failed requests: 0 
-Delay sum: 166756.0
-
-6.) root cache
-Total requests: 2000  Failed requests: 0 
-Delay sum: 117717.0
-
-Total requests: 2000  Failed requests: 0 
-Delay sum: 172645.0
+Verdict:
+1-median is better than simple root caching.
+Division cost function is better than power.

@@ -260,18 +260,20 @@ class NetworkManager():
 
                 #hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
                 #print hostIndex
-                if req['AP'] in self.accessPoints:
+                hi = (int(req['hostIndex']) % 50) + 1
+
+
+                if req['AP'] in self.accessPoints and hi == 24:
                     APIndex = self.accessPoints[req['AP']]
 
                     host = net.get('h%d' % self.hostSwitchMap[APIndex])
 
-                    hi = (int(req['hostIndex']) % 50) + 1
                     cacheId = self.cacheOnAp[int(medians[hi])]
                     picture = userContent[hi - 1][contentChoice[requestCount]]
 
                     print str(requestCount) + "H%d requests img%d via h%d" % (hi, picture, cacheId)
                
-                    result = self.makeRequest(host, picture, cacheId = 2 ) #caching on the edge
+                    result = self.makeRequest(host, picture, cacheId = cacheId ) #caching on the edge
                     code = result[0:3]
                     delay = result[4:9]
                     print "Delay " + str(delay)
@@ -285,7 +287,7 @@ class NetworkManager():
                     if requestCount > 10 and requestCount == failedRequests:
                         break
 
-                    if requestCount > limit:
+                    if requestCount > 700:
                         break
             print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
             print "Delay sum: " + str(totalDelay)
