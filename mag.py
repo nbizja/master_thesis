@@ -17,6 +17,7 @@ from MobilitySwitch import MobilitySwitch
 from MySwitch import MySwitch
 from random import randint
 from RyuRestClient import RyuRestClient
+from operator import itemgetter
 import numpy as np
 import csv
 import random
@@ -141,7 +142,7 @@ class NetworkManager():
             
             net.addLink(cache, s)
             self.cacheOnAp[i] = i + 1
-            self.startSquid(cache, i + 1)
+            #self.startSquid(cache, i + 1)
             #cache.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % (i+1))
             self.nextHostIndex += 1
            
@@ -251,7 +252,19 @@ class NetworkManager():
             totalDelay = 0.0
             failedRequests = 0
 
-            medians = cacheManager.computeKMedianCaches(k=1, userId=CacheManager.ALL_USERS)
+            medians = cacheManager.computeKMedianCaches(k=2, userId=24)#CacheManager.ALL_USERS)
+            print medians
+
+            hostCache = {}
+
+            for api in self.accessPoints.values():
+                distances = []
+                for median in medians[24]:
+                    distances.append(cacheManager.distance(tree, api, median))
+                mi, minDist = min(enumerate(distances), key=itemgetter(1))
+                hostCache[api] = medians[24][mi] #host to cache connection
+
+            print hostCache
             CLI(net)
 
             #print cacheIds.keys()
@@ -268,10 +281,10 @@ class NetworkManager():
 
                     host = net.get('h%d' % self.hostSwitchMap[APIndex])
 
-                    cacheId = self.cacheOnAp[int(medians[hi])]
+                    cacheId = hostCache[APIndex] #self.cacheOnAp[int(medians[hi])]
                     picture = userContent[hi - 1][contentChoice[requestCount]]
 
-                    print str(requestCount) + "H%d requests img%d via h%d" % (hi, picture, cacheId)
+                    print str(requestCount) + "H%d requests img%d from %s via h%d" % (hi, picture, req['AP'], cacheId)
                
                     result = self.makeRequest(host, picture, cacheId = cacheId ) #caching on the edge
                     code = result[0:3]

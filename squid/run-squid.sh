@@ -13,7 +13,7 @@ else
 	cache_log /var/log/squid/exp$2/cache$1.log
 	access_log /var/log/squid/exp$2/access$1.log
 	cache_store_log /var/log/squid/exp$2/store$1.log
-	cache_dir ufs /data/squid/$1 64 16 32" > /home/ubuntu/mag/squid/squid.conf;
+	cache_dir ufs /data/squid/$1 32 8 16" > /home/ubuntu/mag/squid/squid.conf;
 fi
 
 

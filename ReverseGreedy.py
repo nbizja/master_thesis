@@ -1,9 +1,17 @@
 from operator import itemgetter
+from copy import deepcopy
+
 class ReverseGreedy():
     
-    def getAlternativePaths(self, pathIndex, median, paths):
+    def getAlternativePaths(self, pathIndex, paths):
         alternativePaths = []
-        pathIndex = 0
+        if pathIndex >= len(paths):
+            print "pathIndex not in paths   %d   %d" % (pathIndex, len(paths))
+            print paths
+
+
+        median = paths[pathIndex][-1]
+
         for i in range(0, len(paths)):
             if i == pathIndex:
                 continue
@@ -15,44 +23,6 @@ class ReverseGreedy():
 
         return alternativePaths 
 
-    def merge(self, median, medianIndex, paths, altPathsIds):
-        "Merging median with other median on same path to root"
-
-        mergeCosts = []
-
-        altPaths= [ paths[i] for i in altPathsIds]
-        
-        for path in altPaths:
-            for hop in path:
-                if len(hop.getNumOfReq()) > 0:
-                    cost = self.computeCost(median, hop.getDepth())
-                    mergeCosts.append(cost)
-
-        if len(mergeCosts) != len(altPaths):
-            print "Merge not working."
-
-        minCostIndex, minCost = min(enumerate(mergeCosts), key=itemgetter(1))
-        newMedians = self.getMediansFromPath(paths)
-        newMedians[minCostIndex].mergeMedian(median)
-        del newMedians[medianIndex]
-
-        return minCost, newMedians
-
-    def moveUp(self, median, medianIndex, paths):
-        "Moving median up the tree"
-
-        if (len(paths[medianIndex]) == 1): #We can't move up anymore
-            return 9999999, newMedians
-        
-        currentMedian = paths[medianIndex][-1]
-        del paths[medianIndex][-1]
-
-        paths[medianIndex][-1].mergeMedian(currentMedian)
-        newMedians = self.getMediansFromPath(paths)
-
-        cost = self.computeCost(median, median.getDepth() - 1)
-        return cost, newMedians
-
     def getMediansFromPath(self, paths):
         return list(map((lambda path: path[-1]), paths)) #list of ids of switches
 
@@ -60,32 +30,90 @@ class ReverseGreedy():
         cost = 0.0
         numOfRequests = median.getNumOfReq()
         reqDepths = median.getReqDepth()
-
+        print "len(numOfRequests) %d" % len(numOfRequests) 
         for i in range(0, len(numOfRequests)):
-            cost += float(numOfRequests[i]) / float(reqDepths[i] + 1)
+            cost += float(numOfRequests[i]) / float((reqDepths[i] + 1 ) * 100)
 
         return cost
 
-    def reverseGreedy(self, lca, paths, userMovementPattern, k):
+    def merge(self, medianIndex, paths, altPathsIds):
+        "Merging median with other median on same path to root"
+
+        mergeCosts = []
+        altPaths= [ paths[j] for j in altPathsIds]
+
+        median = paths[medianIndex][-1]
+
+        for path in altPaths:
+            for hop in path:
+                if len(hop.getNumOfReq()) > 0:
+                    cost = self.computeCost(median, hop.getDepth())
+                    mergeCosts.append(cost)
+                    break
+
+
+        if len(mergeCosts) != len(altPaths):
+            print "Merge not working."
+
+        minCostIndex, minCost = min(enumerate(mergeCosts), key=itemgetter(1))
+
+        altPaths[minCostIndex][-1].mergeMedian(median)
+
+        return minCost, altPaths
+
+    def moveUp(self, medianIndex, paths):
+        "Moving median up the tree"
+
+        if (len(paths[medianIndex]) == 1): #We can't move up anymore
+            return 9999999, paths
+        
+        currentMedian = paths[medianIndex][-1]
+        pths = paths
+        pths[medianIndex][-2].mergeMedian(pths[medianIndex][-1])
+        del pths[medianIndex][-1]
+        cost = self.computeCost(currentMedian, currentMedian.getDepth() - 1)
+
+        return cost, pths
+
+    def reverseGreedy(self, lca, paths, k):
         #paths are oriented from lca to leaf
         totalCost = 0
         pathNum = 0
-        medians = self.getMediansFromPath(paths)
-        while len(medians) > k:
+        #print medians
+        while len(paths) > k:
             removalCosts = []
-            newStates = []
-            for i in range(0, len(medians)):
-                altPathsIds = self.getAlternativePaths(i, medians[i], paths)
+            newPaths = []
+            #print "1. )Len paths %d" % len(paths)
+            for i in range(0, len(paths)):
+            #    print "2. )Len paths %d" % len(paths)
+                p = deepcopy(paths)
+                altPathsIds = list(self.getAlternativePaths(i, p))
+                mi = paths[i][-1].getId()
                 if altPathsIds:
-                    cost, newMedians = self.merge(medians[i], i, paths, altPathsIds)
+                    cost, np = self.merge(i, p, altPathsIds)
+                    #print "3.1 )Len paths %d" % len(paths)
+
+                    #print " %d.) Cache %d is merged. Cost: %.2f" % (i, mi, cost)
+
                 else:
-                    cost, newMedians = self.moveUp(medians[i], i, paths)
+                    cost, np = self.moveUp(i, p)
+                    #print "3.2 )Len paths %d" % len(paths)
+
+                    #print "%d.) Cache %d is moved up. Cost: %.2f" % (i, mi, cost)
+
 
                 removalCosts.append(cost)
-                newStates.append(newMedians)
+                newPaths.append(list(np))
 
             minCostIndex, minCost = min(enumerate(removalCosts), key=itemgetter(1))
-            medians = newStates[minCostIndex]
-            
+            #print "4. )Len paths %d" % len(paths)
+            paths = newPaths[minCostIndex]
+            #print "5. )Len paths %d" % len(paths)
 
-        return totalCost, medians
+            #print "Lowest cost: %.2f ,Action:%d  ,len(newmedians): %d" % (minCost,minCostIndex, len(paths)) 
+            #print paths
+            
+            print "\n==================================================\n"
+
+            
+        return totalCost, paths

@@ -15,3 +15,7 @@ Delay sum: 15401.0
 Verdict:
 1-median is better than simple root caching.
 Division cost function is better than power.
+
+
+Total requests: 700  Failed requests: 0 
+Delay sum: 42208.0

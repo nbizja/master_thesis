@@ -34,8 +34,9 @@ class CacheManager():
         #print "Computing median"
         #get list of paths for all used access points
         paths = self.getPaths(userMovementPattern)
+        print "Paths len %d " % len(paths)
         if len(paths) == 0:
-            return 2
+            print "Should not happen!"
         #Compute lowest common ancestor
         singleMedian = SingleMedian()
 
@@ -51,12 +52,13 @@ class CacheManager():
             return median.getId()
 
         elif strategy == self.REVERSE_GREEDY:
+            print "Starting reverse greedy"
             greedy = ReverseGreedy()
-            bestCost, medians = greedy.reverseGreedy(lca, paths, userMovementPattern, k)
-            bestLocations = list(map((lambda median: median.getId()), medians))
+            bestCost, p = greedy.reverseGreedy(lca, paths, k)
+            bestLocations = list(map((lambda path: path[-1].getId()), p))
 
-            #print " Best locations:"
-            #print bestLocations
+            print " Best locations:"
+            print bestLocations
 
             return bestLocations
 
@@ -84,11 +86,10 @@ class CacheManager():
 
 
     def getPaths(self, movementPattern):
-        #print "Getting paths"
         accessPoints = movementPattern.keys()
         paths = []
         for ap in accessPoints:
-            #print "Getting path for " + ap
+            print "Getting path for " + ap
             path = self.findPathToAP(self.network, ap, movementPattern[ap])
             if len(path):
                 paths.append(path)
@@ -96,17 +97,47 @@ class CacheManager():
         return paths
 
     def findPathToAP(self, mySwitch, APName, numOfReq):
-        if mySwitch.APName == APName:
+        #print mySwitch.getAPName() + " == " + APName + " ?"
+        if mySwitch.getAPName() == APName:
+            #print "S%d == %s" % (mySwitch.getId(), APName)
             mySwitch.setNumOfReq([numOfReq])
             mySwitch.setReqDepth([mySwitch.getDepth()])
-
             return [mySwitch]
+
         if mySwitch.isAP:
             return []
 
         for child in mySwitch.getChildren():
+            #print "S%d has child s%d with path:" % (mySwitch.getId(), child.getId())
             childPath = self.findPathToAP(child, APName, numOfReq)
+            #print childPath
             if len(childPath) > 0:
                 return [mySwitch] + childPath
         
         return []
+
+
+    def findPathToSwitch(self, mySwitch, targetSwitchId):
+        if mySwitch.getId() == targetSwitchId:
+            return [mySwitch.getId()]
+
+        if mySwitch.isAP:
+            return []
+
+        for child in mySwitch.getChildren():
+            childPath = self.findPathToSwitch(child, targetSwitchId)
+            if len(childPath) > 0:
+                return [mySwitch.getId()] + childPath
+        
+        return []
+
+    def distance(self, root, s1Id, s2Id):
+        "Calculates hop counts between two switches"
+        path1 = self.findPathToSwitch(root, s1Id)
+        path2 = self.findPathToSwitch(root, s2Id)
+        print "\nDistance between s%d and s%d is " % (s1Id, s2Id)
+        print path1
+        print path2
+        print len(list(set(path1) - set(path2)))
+        return len(list(set(path1) - set(path2)))
+
