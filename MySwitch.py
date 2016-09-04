@@ -103,7 +103,7 @@ class MySwitch():
 
     def mergeMedian(self, median):
         "Adds number of request and request depths to this node"
-        print "%d: Len before %d   len after  %d" % (self.index, len(self.numOfReq), len(median.getNumOfReq()))
+        #print "%d: Len before %d   len after  %d" % (self.index, len(self.numOfReq), len(median.getNumOfReq()))
         self.numOfReq += median.getNumOfReq()
         self.reqDepth += median.getReqDepth()
 

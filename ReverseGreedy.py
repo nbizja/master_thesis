@@ -5,10 +5,6 @@ class ReverseGreedy():
     
     def getAlternativePaths(self, pathIndex, paths):
         alternativePaths = []
-        if pathIndex >= len(paths):
-            print "pathIndex not in paths   %d   %d" % (pathIndex, len(paths))
-            print paths
-
 
         median = paths[pathIndex][-1]
 
@@ -26,19 +22,27 @@ class ReverseGreedy():
     def getMediansFromPath(self, paths):
         return list(map((lambda path: path[-1]), paths)) #list of ids of switches
 
-    def computeCost(self, median, toDepth):
+    def computeCost(self, median, toDepth, fromDepth, isMerge):
         cost = 0.0
         numOfRequests = median.getNumOfReq()
         reqDepths = median.getReqDepth()
-        print "len(numOfRequests) %d" % len(numOfRequests) 
-        for i in range(0, len(numOfRequests)):
-            cost += float(numOfRequests[i]) / float((reqDepths[i] + 1 ) * 100)
+        #print "len(numOfRequests) %d" % len(numOfRequests)
+
+        if isMerge:
+            for depth in range(toDepth, fromDepth):
+                for i in range(0, len(numOfRequests)):
+                    cost += float(numOfRequests[i]) / float(depth + 1)
+
+        else:
+            for i in range(0, len(numOfRequests)):
+                cost += float(numOfRequests[i]) / float((abs(toDepth - reqDepths[i]) + 1 ))
+
+
 
         return cost
 
     def merge(self, medianIndex, paths, altPathsIds):
         "Merging median with other median on same path to root"
-
         mergeCosts = []
         altPaths= [ paths[j] for j in altPathsIds]
 
@@ -46,11 +50,12 @@ class ReverseGreedy():
 
         for path in altPaths:
             for hop in path:
-                if len(hop.getNumOfReq()) > 0:
-                    cost = self.computeCost(median, hop.getDepth())
+                if len(hop.getNumOfReq()) > 0 and hop.getId() != median.getId():
+                    print "Hop %d depth %d, med %d depth %d " % (hop.getId(), hop.getDepth(), median.getId() ,median.getDepth())
+                    merged = deepcopy(hop).mergeMedian(median)
+                    cost = self.computeCost(median, median.getDepth(), hop.getDepth(), True)
                     mergeCosts.append(cost)
                     break
-
 
         if len(mergeCosts) != len(altPaths):
             print "Merge not working."
@@ -71,7 +76,8 @@ class ReverseGreedy():
         pths = paths
         pths[medianIndex][-2].mergeMedian(pths[medianIndex][-1])
         del pths[medianIndex][-1]
-        cost = self.computeCost(currentMedian, currentMedian.getDepth() - 1)
+        print str(currentMedian.getId()) + " on depth %d" % currentMedian.getDepth()
+        cost = self.computeCost(currentMedian, currentMedian.getDepth() - 1, 0, False)
 
         return cost, pths
 
@@ -79,7 +85,7 @@ class ReverseGreedy():
         #paths are oriented from lca to leaf
         totalCost = 0
         pathNum = 0
-        #print medians
+        print paths
         while len(paths) > k:
             removalCosts = []
             newPaths = []
@@ -91,19 +97,15 @@ class ReverseGreedy():
                 mi = paths[i][-1].getId()
                 if altPathsIds:
                     cost, np = self.merge(i, p, altPathsIds)
-                    #print "3.1 )Len paths %d" % len(paths)
-
-                    #print " %d.) Cache %d is merged. Cost: %.2f" % (i, mi, cost)
+                    print " %d.) Cache %d is merged. Cost: %.3f" % (i, mi, cost)
 
                 else:
                     cost, np = self.moveUp(i, p)
-                    #print "3.2 )Len paths %d" % len(paths)
-
-                    #print "%d.) Cache %d is moved up. Cost: %.2f" % (i, mi, cost)
+                    print "%d.) Cache %d is moved up. Cost: %.3f" % (i, mi, cost)
 
 
                 removalCosts.append(cost)
-                newPaths.append(list(np))
+                newPaths.append(deepcopy(np))
 
             minCostIndex, minCost = min(enumerate(removalCosts), key=itemgetter(1))
             #print "4. )Len paths %d" % len(paths)

@@ -7,7 +7,7 @@ from CacheManager import CacheManager
 import sys
 
 if __name__ == '__main__':
-    userMovement = {
+    userMovement2 = {
         24: {'SocBldg2AP1': 3, 'SocBldg2AP3': 1, 'AcadBldg22AP2': 4, 'LibBldg4AP3': 2,
         'ResBldg62AP4': 9, 'AdmBldg12AP1': 1, 'SocBldg1AP5': 6, 'AcadBldg21AP2': 2,
         'AcadBldg8AP1': 1, 'LibBldg2AP20': 2, 'SocBldg1AP1': 11, 'LibBldg2AP9': 8,
@@ -25,6 +25,10 @@ if __name__ == '__main__':
         'AdmBldg22AP1': 19, 'AcadBldg30AP3': 1, 'ResBldg82AP3': 3, 'AcadBldg8AP4': 14, 
         'LibBldg2AP19': 8, 'AcadBldg30AP1': 10, 'LibBldg2AP17': 13, 'LibBldg1AP17': 2, 
         'LibBldg2AP13': 2, 'LibBldg2AP10': 3, 'LibBldg2AP11': 3} 
+    }
+
+    userMovement = {
+        24: {'SocBldg2AP1': 5, 'SocBldg3AP2': 5, 'AcadBldg22AP2': 50, 'LibBldg4AP3': 1}
     }
 
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')

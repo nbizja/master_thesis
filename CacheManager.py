@@ -91,6 +91,8 @@ class CacheManager():
         for ap in accessPoints:
             print "Getting path for " + ap
             path = self.findPathToAP(self.network, ap, movementPattern[ap])
+            print path
+            print ""
             if len(path):
                 paths.append(path)
 
@@ -98,6 +100,7 @@ class CacheManager():
 
     def findPathToAP(self, mySwitch, APName, numOfReq):
         #print mySwitch.getAPName() + " == " + APName + " ?"
+
         if mySwitch.getAPName() == APName:
             #print "S%d == %s" % (mySwitch.getId(), APName)
             mySwitch.setNumOfReq([numOfReq])
@@ -138,6 +141,7 @@ class CacheManager():
         print "\nDistance between s%d and s%d is " % (s1Id, s2Id)
         print path1
         print path2
-        print len(list(set(path1) - set(path2)))
-        return len(list(set(path1) - set(path2)))
+        print len(list(set(path1 + path2)))
+        return len(list(set(path1 + path2)))
+
 

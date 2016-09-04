@@ -77,7 +77,7 @@ class NetworkManager():
         return accessPoints
 
     def createTree(self, net, span, depth, parentIndex=0):
-        mySwitch = MySwitch(self.nextSwitchIndex, depth=depth)
+        mySwitch = MySwitch(self.nextSwitchIndex, depth)
         s = net.addSwitch('s%d' % self.nextSwitchIndex)
         if parentIndex > 0:
             net.addLink(s, net.get('s%d' % parentIndex))           
@@ -85,7 +85,7 @@ class NetworkManager():
         self.nextSwitchIndex += 1            
         
         if depth >= self.maxDepth or self.nextSwitchIndex >= self.maxAps:
-            mySwitch.setChildren(self.addAccessPoints(net, mySwitch, depth, self.buildingNames[self.currentBuilding]))
+            mySwitch.setChildren(self.addAccessPoints(net, mySwitch, depth + 1, self.buildingNames[self.currentBuilding]))
             return mySwitch
         else:
             for i in range(1, span + 1):  
@@ -320,9 +320,9 @@ if __name__ == '__main__':
 
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
     networkManager = NetworkManager()
-    buildings, apsByBuildings, buildingNames = tp.computeBuildingAverages()
-    linkage = tp.computeLinkage(printDendogram = False)
-    clusters = tp.computeClusters()
+    apsByBuildings, buildingNames = tp.getSample()
+    linkage = {}#tp.computeLinkage(printDendogram = False)
+    clusters = {}#tp.computeClusters()
     net, tree = networkManager.networkFromCLusters(expName, clusters, linkage, 30, apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
