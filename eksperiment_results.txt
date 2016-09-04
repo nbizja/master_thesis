@@ -1,0 +1,54 @@
+CACHE: 64 16 32
+
+h24_700_root_pow_50 
+Total requests: 700  Failed requests: 0 
+Delay sum: 15987.0
+
+h24_700_mycache_pow_50
+Total requests: 700  Failed requests: 0 
+Delay sum: 15996.0
+
+h24_700_mycache_div_50
+Total requests: 700  Failed requests: 0 
+Delay sum: 15401.0
+
+Verdict:
+1-median is better than simple root caching.
+Division cost function is better than power.
+
+
+Total requests: 700  Failed requests: 0 
+Delay sum: 42208.0
+
+Total requests: 700  Failed requests: 0 
+Delay sum: 18508.0
+
+
+S5 -> SocBldg2APS (SocBldg2AP1 6
+S7 -> AcadBldg22APS (AcadBldg22AP2 8
+S9 -> LibBldg4APS (LibBldg4AP3 10
+S11 -> ResBldg33APS (ResBldg33AP1 12
+S13 -> AdmBldg12APS (AdmBldg12AP1 14
+S16 -> SocBldg1APS (SocBldg1AP5 17
+S18 -> AcadBldg21APS (AcadBldg21AP2 19
+S20 -> LibBldg2APS (LibBldg2AP9 21
+S22 -> AcadBldg8APS (AcadBldg8AP1 23
+S24 -> ResBldg62APS (ResBldg62AP4 25
+S27 -> AcadBldg19APS (AcadBldg19AP2 28
+S29 -> SocBldg4APS (SocBldg4AP21 30
+S31 -> ResBldg93APS (ResBldg93AP1 32
+S33 -> ResBldg84APS (ResBldg84AP3 34
+S35 -> LibBldg1APS (LibBldg1AP5 36
+S37 -> AcadBldg4APS (AcadBldg4AP4 38
+S39 -> SocBldg3APS (SocBldg3AP2 40
+S41 -> SocBldg11APS (SocBldg11AP4 42
+S43 -> ResBldg80APS (ResBldg80AP4 44
+S45 -> ResBldg15APS (ResBldg15AP1 46
+S47 -> AcadBldg30APS (AcadBldg30AP1 48
+S49 -> ResBldg25APS (ResBldg25AP1 50
+S51 -> ResBldg36APS (ResBldg36AP2 52
+S53 -> AcadBldg34APS (AcadBldg34AP4 54
+S55 -> ResBldg39APS (ResBldg39AP1 56
+
+
+{6: 4, 8: 4, 10: 4, 12: 12, 14: 4, 17: 4, 19: 4, 21: 4, 23: 4, 25: 4, 28: 4, 30: 4, 32: 4, 34: 4, 36: 4, 38: 4, 40: 4, 42: 4, 44: 4, 46: 4, 48: 4, 50: 4, 52: 4, 54: 4, 56: 4}
