@@ -34,7 +34,7 @@ class CacheManager():
         #print "Computing median"
         #get list of paths for all used access points
         paths = self.getPaths(userMovementPattern)
-        print "Paths len %d " % len(paths)
+        #print "Paths len %d " % len(paths)
         if len(paths) == 0:
             print "Should not happen!"
         #Compute lowest common ancestor
@@ -57,8 +57,8 @@ class CacheManager():
             bestCost, p = greedy.reverseGreedy(lca, paths, k)
             bestLocations = list(map((lambda path: path[-1].getId()), p))
 
-            print " Best locations:"
-            print bestLocations
+            #print " Best locations:"
+            #print bestLocations
 
             return bestLocations
 
@@ -80,7 +80,7 @@ class CacheManager():
                         userMovement[hi][row['AP']] = 1
                     else:
                         userMovement[hi][row['AP']] +=1
-        print userMovement[24]
+        #print userMovement[24]
         
         return userMovement
 
@@ -89,10 +89,10 @@ class CacheManager():
         accessPoints = movementPattern.keys()
         paths = []
         for ap in accessPoints:
-            print "Getting path for " + ap
+            #print "Getting path for " + ap
             path = self.findPathToAP(self.network, ap, movementPattern[ap])
-            print path
-            print ""
+            #print path
+            #print ""
             if len(path):
                 paths.append(path)
 
@@ -138,9 +138,9 @@ class CacheManager():
         "Calculates hop counts between two switches"
         path1 = self.findPathToSwitch(root, s1Id)
         path2 = self.findPathToSwitch(root, s2Id)
-        print "\nDistance between s%d and s%d is " % (s1Id, s2Id)
-        print path1
-        print path2
+        #print "\nDistance between s%d and s%d is " % (s1Id, s2Id)
+        #print path1
+        #print path2
         print len(list(set(path1 + path2)))
         return len(list(set(path1 + path2)))
 

@@ -18,6 +18,7 @@ from MySwitch import MySwitch
 from random import randint
 from RyuRestClient import RyuRestClient
 from operator import itemgetter
+import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import random
@@ -54,7 +55,11 @@ class NetworkManager():
 
     def addAccessPoints( self, net, mySwitch, depth, buildingName):
         accessPoints = []
-        for ap in self.apsByBuildings[buildingName]:
+        aps = self.apsByBuildings.values()
+
+        for i in range(0,2):
+            ap = aps[self.nextAPIndex][0]
+
             child = MySwitch(self.nextSwitchIndex, depth, APName=ap['APname'], isAP=True)
             accessPoints.append(child)
             s = net.addSwitch('s' + str(self.nextSwitchIndex))
@@ -68,10 +73,12 @@ class NetworkManager():
 
             self.apFreePort[self.nextSwitchIndex] = freePorts
             self.nextSwitchIndex += 1
+            self.nextAPIndex += 1
             print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
-            break
-            if self.nextSwitchIndex >= self.maxAps:
+            if i == 1:
                 break
+            #if self.nextSwitchIndex >= self.maxAps:
+            #    break
 
         self.currentBuilding += 1
         return accessPoints
@@ -142,7 +149,7 @@ class NetworkManager():
             
             net.addLink(cache, s)
             self.cacheOnAp[i] = i + 1
-            #self.startSquid(cache, i + 1)
+            self.startSquid(cache, i + 1)
             #cache.cmd('sudo arp -i h%d-eth0 10.0.0.1 00:00:00:00:00:01' % (i+1))
             self.nextHostIndex += 1
            
@@ -163,13 +170,14 @@ class NetworkManager():
         self.currentBuilding = 0
         self.buildingNames = buildingNames
         self.apsByBuildings = apsByBuildings
-        self.maxDepth = 4
+        self.nextAPIndex = 0
+        self.maxDepth = 1
         self.maxAps = size
 
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
         print '*** Creating topology\n'
-        tree = self.createTree(net, 5, 0)
+        tree = self.createTree(net, 2, 0)
 
         print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
@@ -247,24 +255,36 @@ class NetworkManager():
         paretoDist = np.random.pareto(0.8, limit * 10) + 1
         contentChoice = np.around(np.array(paretoDist[paretoDist < 200][:(limit + 1)]), 0).astype(int)
 
-        with open('/data/movement.csv', 'rb') as csvfile:
+        with open('/data/example.csv', 'rb') as csvfile:
             userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
             failedRequests = 0
 
             medians = cacheManager.computeKMedianCaches(k=2, userId=24)#CacheManager.ALL_USERS)
-            print medians
+            print "user requests"
+            print userRequests
 
             hostCache = {}
 
-            for api in self.accessPoints.values():
-                distances = []
-                for median in medians[24]:
-                    distances.append(cacheManager.distance(tree, api, median))
-                mi, minDist = min(enumerate(distances), key=itemgetter(1))
-                hostCache[api] = medians[24][mi] #host to cache connection
+            #for api in self.accessPoints.values():
+            #    distances = []
+            #    for median in medians[24]:
+            #        distances.append(cacheManager.distance(tree, api, median))
+            #    mi, minDist = min(enumerate(distances), key=itemgetter(1))
+            #    hostCache[api] = medians[24][mi] #host to cache connection
 
-            print hostCache
+
+            hostCache[3] = 3
+            hostCache[4] = 3
+            hostCache[6] = 3
+            hostCache[7] = 3
+            targetDelayList = []
+            targetDelayAvg = []
+            targetDelay = 0.0
+
+            targetReqCount = 1
+
+
             CLI(net)
 
             #print cacheIds.keys()
@@ -273,8 +293,8 @@ class NetworkManager():
 
                 #hostIndex = (int(req['hostIndex']) % self.numberOfUsers) + self.firstHostIndex
                 #print hostIndex
-                hi = (int(req['hostIndex']) % 50) + 1
-
+                #hi = (int(req['hostIndex']) % 50) + 1
+                hi = int(req['hostIndex'])
 
                 if req['AP'] in self.accessPoints and hi == 24:
                     APIndex = self.accessPoints[req['AP']]
@@ -290,20 +310,45 @@ class NetworkManager():
                     code = result[0:3]
                     delay = result[4:9]
                     print "Delay " + str(delay)
+                    if APIndex == 7:
+                        targetDelay += float(delay)
+                        targetDelayList.append(delay)
+                        targetDelayAvg.append(targetDelay/float(targetReqCount))
+                        targetReqCount += 1
+
+
+
 
                     if int(code) != 200:
                         failedRequests += 1
                     else:
-                        totalDelay += float(delay[2:])
+                        totalDelay += float(delay)
    
                     requestCount += 1
                     if requestCount > 10 and requestCount == failedRequests:
                         break
 
-                    if requestCount > 700:
+                    if requestCount > 1500:
                         break
             print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
             print "Delay sum: " + str(totalDelay)
+
+            print "\nTarget delay list:"
+            print targetDelayList
+
+            print "\nTarget avg delay:"
+            print targetDelayAvg
+
+            print "\nTotal delay:"
+            print targetDelay
+
+            print "\nTotal avg delay:"
+            print targetDelay/float(targetReqCount)
+
+            plt.plot(range(1,len(targetDelayAvg) + 1), targetDelayAvg, 'r--')
+            #plt.axis(range(1, 20, 21))
+            plt.show()
+
 
     def moveHost( self, net, host, hostIndex, oldSwitch, newSwitch, newPort=None ):
         "Move a host from old switch to new switch"

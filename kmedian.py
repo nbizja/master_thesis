@@ -28,7 +28,7 @@ if __name__ == '__main__':
     }
 
     userMovement = {
-        24: {'SocBldg2AP1': 5, 'SocBldg3AP2': 5, 'AcadBldg22AP2': 50, 'LibBldg4AP3': 1}
+        24: {'SocBldg2AP1': 10, 'SocBldg3AP2': 8, 'AcadBldg22AP2': 0, 'LibBldg4AP3': 4}
     }
 
     tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     apsByBuildings, buildingNames = tp.getSample()
     linkage = {} #tp.computeLinkage(printDendogram = False)
     clusters = {} #tp.computeClusters()
+
     net, tree = networkManager.networkFromCLusters('test', clusters, linkage, len(buildingNames), apsByBuildings, buildingNames)
     
     print '*** Getting requests data'
