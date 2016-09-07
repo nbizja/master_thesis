@@ -29,15 +29,15 @@ import subprocess
 
 class NetworkManager():
 
-    def __init__(self):
+    def __init__(self, seed):
         self.apQueue = []
         self.accessPoints = {}
         self.apFreePort = {}
         self.gatewayIP = ''
         self.numberOfUsers = 50
 
-        #random.seed( 323 )
-        #np.random.seed( 323 )
+        random.seed( seed )
+        np.random.seed( seed )
 
     def createServer( self, net ):
         host = net.addHost('h' + str(self.nextHostIndex), mac='00:00:00:00:00:01')
@@ -276,8 +276,8 @@ class NetworkManager():
 
             hostCache['SocBldg2AP1'] = 3
             hostCache['SocBldg3AP1'] = 3
-            hostCache['AcadBldg22AP2'] = 3
-            hostCache['LibBldg4AP3'] = 3
+            hostCache['AcadBldg22AP2'] = 5
+            hostCache['LibBldg4AP3'] = 5
             targetDelayList = []
             targetDelayAvg = []
             targetDelay = 0.0
@@ -369,14 +369,15 @@ if __name__ == '__main__':
 
     for i in range(0, 10):
         print i
+        i = 3
         tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
-        networkManager = NetworkManager()
+        networkManager = NetworkManager((i + 1) * 123)
         apsByBuildings, buildingNames = tp.getSample()
         linkage = {}#tp.computeLinkage(printDendogram = True) #
         clusters = {}#tp.computeClusters() #{}
         net, tree = networkManager.networkFromCLusters(expName, clusters, linkage, 30, apsByBuildings, buildingNames)
         
-        print '*** Getting requests data'
+        #print '*** Getting requests data'
         #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
         #movementParser.getMovementInfo()
         CLI( net )
@@ -386,8 +387,8 @@ if __name__ == '__main__':
         sumDelay = [x + y for x, y in zip(sumDelay, delay)]
         CLI( net )
         net.stop()
+        break
       #createNetwork(4,2) #2^4 hosts
-
     avgDelay = [x / float(len(sumDelay)) for x in sumDelay]
 
     print "All delays"
