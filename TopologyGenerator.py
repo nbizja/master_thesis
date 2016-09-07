@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import csv
 # https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
-#from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
 from numpy import array
@@ -36,7 +36,7 @@ class TopologyGenerator():
             'LibBldg2AP13': 2, 'LibBldg2AP10': 3, 'LibBldg2AP11': 3} 
         }
         userMovement = {
-            24: {'SocBldg2AP1': 10, 'SocBldg3AP2': 8, 'AcadBldg22AP2': 1, 'LibBldg4AP3': 4}
+            24: {'SocBldg2AP1': 10, 'SocBldg3AP1': 8, 'AcadBldg22AP2': 1, 'LibBldg4AP3': 4}
         }
         apsByBuildings = {}
         buildingNames = []
@@ -86,14 +86,14 @@ class TopologyGenerator():
                     x += float(ap['x'])
                     y += float(ap['y'])
                     size = size + 1
-                break #TESTING
+                #break #TESTING
 
             if size > 0.0 and buildingName in subset:     
                 buildingAverages[buildingName] = [x/size, y/size]
             
             #if bi >= buildingLimits: #TESTING
             #    break
-            bi = bi + 1 #TESTING
+            #bi = bi + 1 #TESTING
 
         self.buildingAverages = buildingAverages
         return self.buildingAverages, apsByBuildings, buildingNames
@@ -119,13 +119,13 @@ class TopologyGenerator():
             plt.figure(figsize=(25, 10))
 
             plt.title('Hierarchical Clustering Dendrogram (truncated)')
-            plt.xlabel('sample index')
+            plt.xlabel('Dendogram of Dartmouth campus buildings clusters')
             plt.ylabel('distance')
             dendrogram(
                 self.Z,
-                truncate_mode='lastp',  # show only the last p merged clusters
-                p=20,  # show only the last p merged clusters
-                show_leaf_counts=False,  # otherwise numbers in brackets are counts
+                #truncate_mode='lastp',  # show only the last p merged clusters
+                #p=20,  # show only the last p merged clusters
+                show_leaf_counts=True,  # otherwise numbers in brackets are counts
                 leaf_rotation=90.,
                 leaf_font_size=12.,
                 show_contracted=True,  # to get a distribution impression in truncated branches

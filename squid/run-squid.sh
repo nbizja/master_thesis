@@ -6,14 +6,14 @@ if [[ "$1" == 2 ]]; then
 	cache_log /var/log/squid/cache$1.log
 	access_log /var/log/squid/access$1.log
 	cache_store_log /var/log/squid/exp$2/store$1.log
-	cache_dir ufs /data/squid/$1 1 1 4" > /home/ubuntu/mag/squid/squid.conf;
+	cache_dir ufs /data/squid/$1 4 4 16" > /home/ubuntu/mag/squid/squid.conf;
 else
 	echo "include /home/ubuntu/mag/squid/squid-base.conf
 	pid_filename /var/run/squid$1.pid
 	cache_log /var/log/squid/exp$2/cache$1.log
 	access_log /var/log/squid/exp$2/access$1.log
 	cache_store_log /var/log/squid/exp$2/store$1.log
-	cache_dir ufs /data/squid/$1 1 1 4" > /home/ubuntu/mag/squid/squid.conf;
+	cache_dir ufs /data/squid/$1 4 4 16" > /home/ubuntu/mag/squid/squid.conf;
 fi
 
 

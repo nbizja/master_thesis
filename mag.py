@@ -36,13 +36,13 @@ class NetworkManager():
         self.gatewayIP = ''
         self.numberOfUsers = 50
 
-        random.seed( 323 )
-        np.random.seed( 323 )
+        #random.seed( 323 )
+        #np.random.seed( 323 )
 
     def createServer( self, net ):
         host = net.addHost('h' + str(self.nextHostIndex), mac='00:00:00:00:00:01')
         self.gatewayIP = str(IPAddress(167772160 + self.nextHostIndex))
-        print '***  Creating main server on network root %s' % self.gatewayIP
+        #print '***  Creating main server on network root %s' % self.gatewayIP
         
         rootSwitch = net.get('s1')
         net.addLink(host, rootSwitch, delay='50ms')#, delay="200ms")
@@ -74,7 +74,7 @@ class NetworkManager():
             self.apFreePort[self.nextSwitchIndex] = freePorts
             self.nextSwitchIndex += 1
             self.nextAPIndex += 1
-            print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
+            #print "S" + str(mySwitch.getId()) + " -> " + buildingName + "APS (" +ap['APname'] + " "+ str(child.getId()) + ""
             if i == 1:
                 break
             #if self.nextSwitchIndex >= self.maxAps:
@@ -87,7 +87,7 @@ class NetworkManager():
         mySwitch = MySwitch(self.nextSwitchIndex, depth)
         s = net.addSwitch('s%d' % self.nextSwitchIndex)
         if parentIndex > 0:
-            net.addLink(s, net.get('s%d' % parentIndex))           
+            net.addLink(s, net.get('s%d' % parentIndex), delay='2ms')           
 
         self.nextSwitchIndex += 1            
         
@@ -176,20 +176,20 @@ class NetworkManager():
 
         #buildingIndex = 0
         #links = [linkage[len(linkage) - 1,0], linkage[len(linkage) - 1,1]]
-        print '*** Creating topology\n'
+        #print '*** Creating topology\n'
         tree = self.createTree(net, 2, 0)
 
-        print '*** Creating gateway host and starting web server\n'
+        #print '*** Creating gateway host and starting web server\n'
         self.createServer(net)
 
-        print '*** Adding cache servers\n'
+        #print '*** Adding cache servers\n'
         self.addCacheServers(net)
 
-        print '*** Adding hosts from h%d to h%d' % (self.nextHostIndex, self.nextHostIndex + self.numberOfUsers)
+        #print '*** Adding hosts from h%d to h%d' % (self.nextHostIndex, self.nextHostIndex + self.numberOfUsers)
         self.firstHostIndex = self.nextHostIndex
         self.addHosts( net, tree)
 
-        print '*** Starting network\n'        
+        #print '*** Starting network\n'        
         net.start()
 
         #print "*** Adding static flows"
@@ -227,13 +227,13 @@ class NetworkManager():
         cacheStr = ''
         if cacheId != 0:
             cacheStr = '-x http://10.0.0.' + str(cacheId) + ':8080'
-
+        #time_starttransfer
         cmd = "curl --connect-timeout 3 -so /dev/null -w '%{http_code},%{time_starttransfer}' " + cacheStr + " http://" + self.gatewayIP + "/" + str(item)
 
         return host.cmd(cmd)
 
     def simulation( self, net, tree, limit ):
-        print '*** Simulation started'
+        #print '*** Simulation started'
         #bwmTxt = 's1'
         #for i in range(2, self.nextSwitchIndex):
         #    bwmTxt = ',s' + str(i)
@@ -252,17 +252,17 @@ class NetworkManager():
         for u in users:
             userContent.append(random.sample(range(1, 4001), 200))
 
-        paretoDist = np.random.pareto(0.8, limit * 10) + 1
-        contentChoice = np.around(np.array(paretoDist[paretoDist < 200][:(limit + 1)]), 0).astype(int)
-
+        paretoDist = np.random.pareto(0.5, limit * 10) + 1
+        #contentChoice = np.around(np.array(paretoDist[paretoDist < 200][:(limit + 1)]), 0).astype(int)
+        contentChoice = random.sample(range(1, 4001), 100)
         with open('/data/example.csv', 'rb') as csvfile:
             userRequests = csv.DictReader(csvfile, fieldnames, delimiter=',')
             totalDelay = 0.0
             failedRequests = 0
 
-            medians = cacheManager.computeKMedianCaches(k=2, userId=24)#CacheManager.ALL_USERS)
-            print "user requests"
-            print userRequests
+            #medians = cacheManager.computeKMedianCaches(k=2, userId=24)#CacheManager.ALL_USERS)
+            #print "user requests"
+            #print userRequests
 
             hostCache = {}
 
@@ -274,10 +274,10 @@ class NetworkManager():
             #    hostCache[api] = medians[24][mi] #host to cache connection
 
 
-            hostCache[3] = 3
-            hostCache[4] = 3
-            hostCache[6] = 3
-            hostCache[7] = 3
+            hostCache['SocBldg2AP1'] = 3
+            hostCache['SocBldg3AP1'] = 3
+            hostCache['AcadBldg22AP2'] = 3
+            hostCache['LibBldg4AP3'] = 3
             targetDelayList = []
             targetDelayAvg = []
             targetDelay = 0.0
@@ -285,8 +285,8 @@ class NetworkManager():
             targetReqCount = 1
 
 
-            CLI(net)
-
+            #CLI(net)
+            #print self.accessPoints
             #print cacheIds.keys()
             for req in userRequests:
                 #WARNING: mapping multiple users into one.
@@ -301,18 +301,18 @@ class NetworkManager():
 
                     host = net.get('h%d' % self.hostSwitchMap[APIndex])
 
-                    cacheId = hostCache[APIndex] #self.cacheOnAp[int(medians[hi])]
-                    picture = userContent[hi - 1][contentChoice[requestCount]]
+                    cacheId = hostCache[req['AP']] #self.cacheOnAp[int(medians[hi])]
+                    picture = random.sample(range(1, 201), 1)[0] #userContent[hi - 1][contentChoice[requestCount]]
 
-                    print str(requestCount) + "H%d requests img%d from %s via h%d" % (hi, picture, req['AP'], cacheId)
+                    #print str(requestCount) + "H%d requests img%d from %s (H%d) via h%d" % (hi, picture, req['AP'], self.hostSwitchMap[APIndex], cacheId)
                
                     result = self.makeRequest(host, picture, cacheId = cacheId ) #caching on the edge
                     code = result[0:3]
                     delay = result[4:9]
-                    print "Delay " + str(delay)
-                    if APIndex == 7:
+                    #print "Delay " + str(delay)
+                    if self.hostSwitchMap[APIndex] == 11:
                         targetDelay += float(delay)
-                        targetDelayList.append(delay)
+                        targetDelayList.append(float(delay))
                         targetDelayAvg.append(targetDelay/float(targetReqCount))
                         targetReqCount += 1
 
@@ -326,28 +326,29 @@ class NetworkManager():
    
                     requestCount += 1
                     if requestCount > 10 and requestCount == failedRequests:
+                        print "fail!"
                         break
 
                     if requestCount > 1500:
                         break
-            print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
-            print "Delay sum: " + str(totalDelay)
+            #print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
+            #print "Delay sum: " + str(totalDelay)
 
-            print "\nTarget delay list:"
-            print targetDelayList
+            #print "\nTarget delay list:"
+            #print targetDelayList
 
-            print "\nTarget avg delay:"
-            print targetDelayAvg
+            #print "\nTarget avg delay:"
+            #print targetDelayAvg
 
-            print "\nTotal delay:"
-            print targetDelay
+            #print "\nTotal delay:"
+            return targetDelayList, totalDelay
 
-            print "\nTotal avg delay:"
-            print targetDelay/float(targetReqCount)
+            #print "\nTotal avg delay:"
+            #print targetDelay/float(targetReqCount)
 
-            plt.plot(range(1,len(targetDelayAvg) + 1), targetDelayAvg, 'r--')
+            #plt.plot(range(1,len(targetDelayAvg) + 1), targetDelayAvg, 'r--')
             #plt.axis(range(1, 20, 21))
-            plt.show()
+            #plt.show()
 
 
     def moveHost( self, net, host, hostIndex, oldSwitch, newSwitch, newPort=None ):
@@ -362,20 +363,41 @@ class NetworkManager():
 if __name__ == '__main__':
     setLogLevel( 'info' )
     expName = raw_input("Enter experiment name: ")
+    sumDelay = [0.0 for k in range(0,160)]
+    delays = []
+    totalDelay = []
 
-    tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
-    networkManager = NetworkManager()
-    apsByBuildings, buildingNames = tp.getSample()
-    linkage = {}#tp.computeLinkage(printDendogram = False)
-    clusters = {}#tp.computeClusters()
-    net, tree = networkManager.networkFromCLusters(expName, clusters, linkage, 30, apsByBuildings, buildingNames)
-    
-    print '*** Getting requests data'
-    #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
-    #movementParser.getMovementInfo()
+    for i in range(0, 10):
+        print i
+        tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
+        networkManager = NetworkManager()
+        apsByBuildings, buildingNames = tp.getSample()
+        linkage = {}#tp.computeLinkage(printDendogram = True) #
+        clusters = {}#tp.computeClusters() #{}
+        net, tree = networkManager.networkFromCLusters(expName, clusters, linkage, 30, apsByBuildings, buildingNames)
+        
+        print '*** Getting requests data'
+        #movementParser = MovementDataParser('/home/ubuntu/Downloads/movement/2001-2003/', '/data/movement.csv')
+        #movementParser.getMovementInfo()
+        CLI( net )
+        delay, td = networkManager.simulation(net, tree, 2000)
+        delays.append(delay)
+        totalDelay.append(td)
+        sumDelay = [x + y for x, y in zip(sumDelay, delay)]
+        CLI( net )
+        net.stop()
+      #createNetwork(4,2) #2^4 hosts
 
-    networkManager.simulation(net, tree, 2000)
-    CLI( net )
-    net.stop()
-    #createNetwork(4,2) #2^4 hosts
+    avgDelay = [x / float(len(sumDelay)) for x in sumDelay]
+
+    print "All delays"
+    print delays
+
+    print "Avg Delay"
+    print avgDelay
+
+    print "Total delays"
+    print totalDelay
+
+
 

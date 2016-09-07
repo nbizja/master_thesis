@@ -1,0 +1,11 @@
+AP3 hits: 15  Hit rate: 0.15%
+AP5 hits: 5  Hit rate: 0.05%
+
+AP3 average miss del#ay: 0.218894117647
+AP5 average miss delay: 0.218410526316
+
+AP3 average hit delay: 0.0012
+AP5 average hit delay: 0.0012
+
+AP3 average total delay: 0.18624
+AP5 average total delay: 0.20755
