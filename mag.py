@@ -317,8 +317,6 @@ class NetworkManager():
                         targetReqCount += 1
 
 
-
-
                     if int(code) != 200:
                         failedRequests += 1
                     else:
@@ -327,9 +325,6 @@ class NetworkManager():
                     requestCount += 1
                     if requestCount > 10 and requestCount == failedRequests:
                         print "fail!"
-                        break
-
-                    if requestCount > 1500:
                         break
             #print "Total requests: %d  Failed requests: %d "  % (requestCount - 1, failedRequests)
             #print "Delay sum: " + str(totalDelay)
@@ -367,9 +362,8 @@ if __name__ == '__main__':
     delays = []
     totalDelay = []
 
-    for i in range(0, 10):
+    for i in range(7, 10):
         print i
-        i = 3
         tp = TopologyGenerator('/home/ubuntu/Downloads/APlocations_clean.csv')
         networkManager = NetworkManager((i + 1) * 123)
         apsByBuildings, buildingNames = tp.getSample()
@@ -387,7 +381,6 @@ if __name__ == '__main__':
         sumDelay = [x + y for x, y in zip(sumDelay, delay)]
         CLI( net )
         net.stop()
-        break
       #createNetwork(4,2) #2^4 hosts
     avgDelay = [x / float(len(sumDelay)) for x in sumDelay]
 
